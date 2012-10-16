@@ -3,7 +3,14 @@
 import pprint
 from planetlab.types import *
 
+# NOTE: The legacy network remap is used to re-order the automatically
+#   generated, sequential list of ipaddresses to a legacy order to preserve 
+#   slice-and-IP assignments.  Otherwise, slices would be assigned to new 
+#   IPs, and for now, we wish to preserve the slice-node-ip mapping.
+# An appropriate time to remove this and re-assign IPs to slices would be
+#   after a major update & reinstallation, such as LXC kernel update.
 legacy_network_remap = {
+#'SITE' : { HOST_INDEX : 'natural-order-index-list', }
  'ams01': {1: '11,10,0,1,5,4,3,2,9,8,7,6',
            2: '7,8,10,9,11,0,1,2,3,4,5,6',
            3: '1,0,3,2,10,9,6,11,5,4,8,7'},
@@ -50,7 +57,7 @@ legacy_network_remap = {
            2: '11,2,1,7,8,9,10,3,4,5,6,0',
            3: '7,1,0,3,2,5,4,10,6,9,8,11'}
 }
-NetworkIPv4.legacy_network_remap = legacy_network_remap
+Network.legacy_network_remap = legacy_network_remap
 
 # name : site prefix, used to generate PL site name, hostnames, etc
 # net  : v4 & v6 network prefixes and definitions.
@@ -77,7 +84,7 @@ site_list = [
     Site(name='mad01', net=Network(v4='213.200.103.128', v6='2001:0668:001F:0016::')), 
     Site(name='mia01', net=Network(v4='4.71.210.192',    v6='2001:1900:3001:A::')), 
     Site(name='mil01', net=Network(v4='213.200.99.192',  v6='2001:0668:001F:0017::')), 
-    Site(name='nuq01', net=Network(v4='64.9.225.128',    v6='2604:ca00:f000::'), count=4),
+    Site(name='nuq01', net=Network(v4='64.9.225.128',    v6='2604:ca00:f000::'), count=4, exclude=[1,2,3]),
     Site(name='nuq02', net=Network(v4='149.20.5.64',     v6='2001:4F8:1:1001::')),
     Site(name='ord01', net=Network(v4='4.71.251.128',    v6='2001:1900:3001:B::')), 
     Site(name='par01', net=Network(v4='80.239.168.192',  v6='2001:2030:0000:001A::')), 

@@ -47,6 +47,7 @@ def pl_v6gw(v6prefix, v6gw=None):
     return v6prefix + "1" if v6gw is None else v6gw
 
 class Network(dict):
+    legacy_network_remap = None
     def __str__(self):
         return pprint.pformat(self)
     def __init__(self, **kwargs):
@@ -54,6 +55,7 @@ class Network(dict):
             raise Exception("'v4' is a mandatory argument. i.e. 64.9.225.128")
         if 'v6' not in kwargs:
             raise Exception("'v6' is a mandatory argument. i.e. 2604:ca00:f000::")
+
         kwargs['v4'] = NetworkIPv4(prefix=kwargs['v4'])
         kwargs['v6'] = NetworkIPv6(prefix=kwargs['v6'], last_octet=kwargs['v4'].last())
         if 'remap' in kwargs:
@@ -84,18 +86,20 @@ class NetworkIPv6(dict):
         return pl_v6_primary(index, self['prefix'], int(self['last_octet']))
 
     def ipv6addr_secondaries(self, index):
-        # TODO: add ip reordering as with ipv4, this will allow easier ip-to-slice mapping
-        #if (self.legacy_network_remap is not None and 
-        #    self['name'] in self.legacy_network_remap and
-        #    index in self.legacy_network_remap[self['name']] ):
-        #if 'remap' in self and index in self['remap']:
-        #    l = pl_v6_iplist(index, self['prefix'], int(self['last_octet']))
-        #    ip_list = [ l[int(i)] for i in self['remap'][index].split(",") ]
-        #    return ip_list
-        return pl_v6_iplist(index, self['prefix'], int(self['last_octet']))
+        # NOTE: the natural, sorted order is re-ordered according to 
+        #       legacy_network_remap if present.
+        ipv6_list = pl_v6_iplist(index, self['prefix'], int(self['last_octet']))
+        if ( Network.legacy_network_remap is not None and 
+             self['name'] in Network.legacy_network_remap and
+             index in Network.legacy_network_remap[self['name']] ):
+
+            index_list = Network.legacy_network_remap[self['name']][index].split(",")
+            re_order = [ ipv6_list[int(i)] for i in index_list ]
+            return re_order
+            
+        return ipv6_list
 
 class NetworkIPv4(dict):
-    legacy_network_remap = None
     def __str__(self):
         return pprint.pformat(self)
     def __init__(self, **kwargs):
@@ -107,16 +111,15 @@ class NetworkIPv4(dict):
         return pl_interface(index, self['prefix'])
 
     def iplist(self, index):
-        if (self.legacy_network_remap is not None and 
-            self['name'] in self.legacy_network_remap and
-            index in self.legacy_network_remap[self['name']] ):
-        #if 'remap' in self and index in self['remap']:
-            l = pl_iplist(index, self['prefix'])
-            index_list = self.legacy_network_remap[self['name']][index].split(",")
-            ip_list = [ l[int(i)] for i in index_list ]
-            return ip_list
-        else:
-            return pl_iplist(index, self['prefix'])
+        ip_list = pl_iplist(index, self['prefix'])
+        if (Network.legacy_network_remap is not None and 
+            self['name'] in Network.legacy_network_remap and
+            index in Network.legacy_network_remap[self['name']] ):
+            index_list = Network.legacy_network_remap[self['name']][index].split(",")
+
+            re_order = [ ip_list[int(i)] for i in index_list ]
+            return re_order
+        return ip_list 
 
     def drac(self, index):
         return pl_dracip(index, self['prefix'])
@@ -142,16 +145,24 @@ class Site(dict):
             kwargs['pi'] = [ ("Stephen","Stuart","sstuart@google.com") ]
 
         kwargs['net']['v4']['name'] = kwargs['name']
+        kwargs['net']['v6']['name'] = kwargs['name']
         kwargs['login_base'] = 'mlab%s' % kwargs['name']
         kwargs['sitename'] = 'MLab - %s' % kwargs['name'].upper()
 
-        if 'hosts' not in kwargs:
-            kwargs['hosts'] = {}
+        if 'nodes' not in kwargs:
+            kwargs['nodes'] = {}
 
             for i in range(1,kwargs['count']+1):
                 p = PCU(name=kwargs['name'], index=i, net=kwargs['net'])
-                h = Node(name=kwargs['name'], index=i, net=kwargs['net'], pcu=p, nodegroup=kwargs['nodegroup'])
-                kwargs['hosts'][h.hostname()] = h 
+                exclude_ipv6=True
+                if ( 'exclude' not in kwargs or 
+                    ('exclude' in     kwargs and i not in kwargs['exclude'])
+                   ):
+                    exclude_ipv6=False
+                n = Node(name=kwargs['name'], index=i, net=kwargs['net'], 
+                         pcu=p, nodegroup=kwargs['nodegroup'], exclude_ipv6=exclude_ipv6)
+                kwargs['nodes'][n.hostname()] = n
+
         super(Site, self).__init__(**kwargs)
 
     def sync(self):
@@ -161,6 +172,9 @@ class Site(dict):
             email = person[2]
             AddPersonToSite(email,p_id,"tech",self['login_base'])
             AddPersonToSite(email,p_id,"pi",self['login_base'])
+        for hostname,host in self['nodes'].iteritems():
+            print host
+            host.sync()
 
 class PCU(dict):
     def __str__(self):
@@ -225,6 +239,8 @@ class Node(dict):
             "ipv6addr"             : self['net']['v6'].ipv6addr(self['index']),
             "ipv6addr_secondaries" : " ".join(self['net']['v6'].ipv6addr_secondaries(self['index']))
         }
+        # TODO: secondaries should be added after slices with ipv6 addresses
+        # are added, right?
         return goal
 
     def addslice(self, slicename):
@@ -237,11 +253,14 @@ class Node(dict):
         PutNodeInNodegroup(self.hostname(), node_id, self['nodegroup'])
         interface = self.interface()
         MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
-        MakeInterfaceTags(self.hostname(), node_id, interface, self.v6interface_tags())
+
         for ip in self.iplist():
             interface['ip'] = ip
             interface['is_primary'] = False
             MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
+
+        if not self['exclude_ipv6']:
+            MakeInterfaceTags(self.hostname(), node_id, interface, self.v6interface_tags())
 
 class Attr(dict):
     def __str__(self):

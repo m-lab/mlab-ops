@@ -29,7 +29,6 @@ slice_list = [
                     Attr('MeasurementLabK32', capabilities='CAP_NET_RAW'),
                     Attr('MeasurementLabK32', disk_max='35000000'), ]),
 
-
     Slice(name="northwestern_windrider", index=4),
     Slice(name="uw_geoloc4",             index=5),
     Slice(name="samknows_ispmon",        index=7),

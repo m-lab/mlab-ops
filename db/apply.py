@@ -7,6 +7,15 @@ from slices import *
 from sites  import *
 import sys
 
+def usage():
+    print """
+    apply.py takes static configurations stored in sites.py and slices.py
+        and applies them to the PLC database adding or updating objects, 
+        tags, and other values when appropriate.
+
+    
+"""
+
 def main():
 
     from optparse import OptionParser
@@ -43,6 +52,7 @@ def main():
 
     (options, args) = parser.parse_args()
     if len(sys.argv) == 1:
+        usage()
         parser.print_help()
         sys.exit(1)
 
