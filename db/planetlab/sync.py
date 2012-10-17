@@ -249,3 +249,13 @@ def MakeInterface(hostname, node_id, interface, is_primary):
     #    print "'iplist' : %s" % [ a for a in unspecified_ips_in_db ]
     #    print "WARNING: UNSPECIFIED IP addrs !!! found in DB for host %s" % (host)
 
+def MakeSliceAttribute(name, attr):
+    return 0
+    print name, attr
+    sliceattrs = api.GetSliceTags({'slice_id' : slice_id, 'tagname' :'ip_addresses'})
+    assigned = filter(lambda attr: attr['node_id'] == node['node_id'], sliceattrs)
+    if len(assigned) != 0:
+        print "Deleting: slice tag ip_addresses from %s on %s" % (slicename, node['hostname'])
+        api.DeleteSliceTag(assigned[0]['slice_tag_id'])
+    api.AddSliceTag(slicename, 'ip_addresses', nnet['ip'], node['node_id'])
+
