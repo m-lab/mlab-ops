@@ -13,7 +13,11 @@ def usage():
         and applies them to the PLC database adding or updating objects, 
         tags, and other values when appropriate.
 
-    
+    Examples:
+        ./apply --dryrun --site nuq01
+        ./apply --dryrun --hostname mlab4.nuq01.measurement-lab.org
+
+
 """
 
 def main():
@@ -61,9 +65,9 @@ def main():
     # always setup the configuration for everything (very fast)
     for slice in slice_list:
         for site in site_list:
-            for host in site['hosts']:
-                h = site['hosts'][host]
-                slice.add_host_address(h)
+            for host in site['nodes']:
+                h = site['nodes'][host]
+                slice.add_node_address(h)
 
     # begin processing arguments to apply filters, etc
     # three options:
@@ -83,7 +87,7 @@ def main():
             for x in slice_list: print x ; break
         if options.sliceattrsonly:
             print "attr only"
-            for x in slice_list: print x['attr'] ; break
+            for x in slice_list: print x['attrs'] ; break
 
     elif ( options.site is not None or
          options.hostname is not None or
@@ -99,8 +103,8 @@ def main():
         if options.hostname:
             print "hostname"
             for site in site_list:
-                for host in site['hosts']:
-                    h = site['hosts'][host]
+                for host in site['nodes']:
+                    h = site['nodes'][host]
                     if options.hostname in h.hostname():
                         print h
                         h.sync()
@@ -111,6 +115,7 @@ def main():
             for slice in slice_list: 
                 if slice['name']  == options.slicename:
                     print slice
+                    slice.sync()
             pass
 
     else:
