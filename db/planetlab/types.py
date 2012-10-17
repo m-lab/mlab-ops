@@ -172,9 +172,9 @@ class Site(dict):
             email = person[2]
             AddPersonToSite(email,p_id,"tech",self['login_base'])
             AddPersonToSite(email,p_id,"pi",self['login_base'])
-        for hostname,host in self['nodes'].iteritems():
-            print host
-            host.sync()
+        for hostname,node in self['nodes'].iteritems():
+            print node
+            node.sync()
 
 class PCU(dict):
     def __str__(self):
@@ -219,6 +219,8 @@ class Node(dict):
             raise Exception("'index' is a mandatory argument. i.e. 1,2,3")
         if 'net' not in kwargs:
             raise Exception("'net' is a mandatory argument.")
+        if 'exclude_ipv6' not in kwargs:
+            raise Exception("'exclude_ipv6' is a mandatory argument.")
 
         kwargs['login_base'] = 'mlab%s' % kwargs['name']
         kwargs['slicelist'] = []
@@ -293,29 +295,46 @@ class Slice(dict):
 
         if 'index' not in kwargs:
             kwargs['index'] = None
+        if 'ipv6' not in kwargs:
+            # None means ipv6 is OFF by default
+            kwargs['ipv6'] = None
 
         # *ALL* K32 kernels will need the isolate_loopback enabled.
         LOOPBACK=Attr('MeasurementLabK32', isolate_loopback='1')
-        if 'attr' not in kwargs:
-            kwargs['attr'] = []
-        kwargs['attr'] += [LOOPBACK]
-            
-        kwargs['attrlist'] = []
-        kwargs['hostlist'] = []
-        kwargs['ipv4'] = []
-        kwargs['ipv6'] = []
+        if 'attrs' not in kwargs:
+            kwargs['attrs'] = []
+        kwargs['attrs'] += [LOOPBACK]
+        kwargs['network_list'] = []
 
         super(Slice, self).__init__(**kwargs)
 
-    def add_host_address(self, host):
-        h = host.hostname() 
+    def add_node_address(self, node):
+        h = node.hostname() 
         if self['index'] is not None:
             i = int(self['index'])
-            ipv4=host.iplist()[i]
-            ipv6=host.iplistv6()[i]
+            ipv4=node.iplist()[i]
+            ipv6=node.iplistv6()[i]
         else:
             ipv4=None
             ipv6=None
-        self['attrlist'].append( (h, ipv4, ipv6) )
+        net_tuple = (h, ipv4, "")
+        # the node has ipv6, and the hostname is in the slice's ipv6 list,
+        # or, ipv6 == "all"
+        if ( not node['exclude_ipv6'] and 
+              ( (type(self['ipv6']) == type([]) and     h in self['ipv6']) or 
+                (type(self['ipv6']) == str      and "all" in self['ipv6']) )
+           ):
+            net_tuple = (h, ipv4, ipv6)
+        self['network_list'].append( net_tuple )
         
+    def sync(self):
+        # NOTE: SLICES ARE NOT CREATED HERE.
+        #       USERS ARE NOT ADDED TO SLICES HERE.
+        for attr in self['attrs']:
+            print attr
+            #MakeSliceAttribute(self['name'], attr)
+        print self['network_list']
+        for h,v4,v6 in self['network_list']:
+            print self['name'], h,"ip_addresses=",v4,",",v6
+
 
