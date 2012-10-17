@@ -9,20 +9,21 @@ from planetlab.types import *
 slice_list = [
 
     Slice(name='gt_partha',              index=0),
-    Slice(name='iupui_ndt',              index=1, attr=[
+    Slice(name='iupui_ndt',              index=1, attrs=[
                     Attr('MeasurementLab',    capabilities='VXC_PROC_WRITE'),
                     Attr('MeasurementLab',    disk_max='50000000'),
                     Attr('MeasurementLabK32', disk_max='50000000'), ]),
 
-    Slice(name='iupui_npad',             index=2, attr=[
+    Slice(name='iupui_npad',             index=2, attrs=[
                     Attr(None,                initscript='iupui_npad_initscript'),
                     Attr('MeasurementLab',    capabilities='VXC_PROC_WRITE'),
                     Attr('MeasurementLab',    disk_max='10000000'),
                     Attr('MeasurementLabK32', disk_max='10000000'),
                     Attr('MeasurementLabK32', vsys='web100_proc_write'),
-                    Attr('MeasurementLabK32', pldistro='mlab'), ]),
+                    Attr('MeasurementLabK32', pldistro='mlab'), ],
+                    ipv6=['mlab4.nuq01.measurement-lab.org']),
 
-    Slice(name='mpisws_broadband',       index=3, attr=[
+    Slice(name='mpisws_broadband',       index=3, attrs=[
                     Attr(None,                initscript='mpisws_broadband_initscript'),
                     Attr('MeasurementLab',    capabilities='CAP_NET_RAW'),
                     Attr('MeasurementLab',    disk_max='35000000'),
@@ -33,9 +34,11 @@ slice_list = [
     Slice(name="uw_geoloc4",             index=5),
     Slice(name="samknows_ispmon",        index=7),
     Slice(name="gt_bismark",             index=8),
-    Slice(name="mlab_neubot",            index=9),
+    Slice(name="mlab_neubot",            index=9, 
+                                         ipv6=['mlab4.nuq01.measurement-lab.org', 
+                                               'mlab1.trn01.measurement-lab.org']),
     Slice(name="michigan_1",             index=10),
-    Slice(name='princeton_namecast',     index=11, attr=[
+    Slice(name='princeton_namecast',     index=11, attrs=[
                     Attr('MeasurementLab',    capabilities='CAP_NET_BIND_SERVICE'),
                     Attr('MeasurementLabK32', capabilities='CAP_NET_BIND_SERVICE'), ]),
 
