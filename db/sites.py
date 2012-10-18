@@ -5,8 +5,8 @@ from planetlab.types import *
 
 # NOTE: The legacy network remap is used to re-order the automatically
 #   generated, sequential list of ipaddresses to a legacy order to preserve 
-#   slice-and-IP assignments.  Otherwise, slices would be assigned to new 
-#   IPs, and for now, we wish to preserve the slice-node-ip mapping.
+#   pre-existing slice-and-IP assignments.  Otherwise, slices would be assigned 
+#   to new IPs, and for now, we wish to preserve the slice-node-ip mapping.
 # An appropriate time to remove this and re-assign IPs to slices would be
 #   after a major update & reinstallation, such as LXC kernel update.
 legacy_network_remap = {

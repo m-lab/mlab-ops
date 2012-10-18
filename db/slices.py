@@ -11,8 +11,8 @@ slice_list = [
     Slice(name='gt_partha',              index=0, ipv6=['mlab4.nuq01']),
     Slice(name='iupui_ndt',              index=1, attrs=[
                     Attr('MeasurementLab',    capabilities='VXC_PROC_WRITE'),
-                    Attr('MeasurementLab',    disk_max='50000000'),
-                    Attr('MeasurementLabK32', disk_max='50000000'), ],
+                    Attr('MeasurementLab',    disk_max='60000000'),
+                    Attr('MeasurementLabK32', disk_max='60000000'), ],
                     ipv6=['mlab4.nuq01']),
 
     Slice(name='iupui_npad',             index=2, attrs=[
