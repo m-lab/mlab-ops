@@ -165,7 +165,7 @@ class Site(dict):
 
         super(Site, self).__init__(**kwargs)
 
-    def sync(self):
+    def sync(self, onhost=None):
         site = MakeSite(self['login_base'], self['sitename'], self['sitename'])
         for person in self['pi']:
             p_id = MakePerson(*person)
@@ -173,8 +173,9 @@ class Site(dict):
             AddPersonToSite(email,p_id,"tech",self['login_base'])
             AddPersonToSite(email,p_id,"pi",self['login_base'])
         for hostname,node in self['nodes'].iteritems():
-            print node
-            node.sync()
+            if onhost is None or hostname == onhost:
+                print node
+                node.sync()
 
 class PCU(dict):
     def __str__(self):
@@ -256,13 +257,14 @@ class Node(dict):
         interface = self.interface()
         MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
 
+        if not self['exclude_ipv6']:
+            MakeInterfaceTags(self.hostname(), node_id, interface, self.v6interface_tags())
+
         for ip in self.iplist():
             interface['ip'] = ip
             interface['is_primary'] = False
             MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
 
-        if not self['exclude_ipv6']:
-            MakeInterfaceTags(self.hostname(), node_id, interface, self.v6interface_tags())
 
 class Attr(dict):
     #def __str__(self):
@@ -330,15 +332,19 @@ class Slice(dict):
             net_tuple = (h, ipv4, ipv6)
         self['network_list'].append( net_tuple )
         
-    def sync(self, hostname=None):
+    def sync(self, hostname=None, skipwhitelist=False, skipsliceips=False):
         # NOTE: SLICES ARE NOT CREATED HERE.
         #       USERS  ARE NOT ADDED TO SLICES HERE.
         for attr in self['attrs']:
             MakeSliceAttribute(self['name'], attr)
         for h,v4,v6 in self['network_list']:
             if hostname is None or h == hostname:
-                val = v4 if v6=="" else v4+","+v6
-                attr = Attr(h, ip_addresses=val)
-                MakeSliceAttribute(self['name'], attr)
-
+                if not skipsliceips:
+                    val = v4 if v6=="" else v4+","+v6
+                    attr = Attr(h, ip_addresses=val)
+                    MakeSliceAttribute(self['name'], attr)
+                if not skipwhitelist:
+                    # add this slice to whitelist of all hosts.
+                    WhitelistSliceOnNode(self['name'], h)
+        return
 
