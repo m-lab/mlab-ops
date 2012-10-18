@@ -45,12 +45,17 @@ def usage():
                 In this example, ooni_probe must be explicitly permitted to
                 receive an ipv6 on mlab4.nuq01 in slices.py. 
     Comments:
-        It may be preferrable to eliminate sites.py since that really only
-        needs to run once.  And, provide more intelligent update functions to
-        re-assign nodegroups, assign which hosts are in the ipv6 pool, etc.
+        Since an external sites & slices list was necessary while M-Lab was
+        part of PlanetLab to differentiate mlab from non-mlab, 
+        it may be possible to eliminate sites.py now. That really only
+        needs to run once and subsequent slice operations could query the DB
+        for a list of current sites or hosts.  More intelligent update functions 
+        could to re-assign nodes to nodegroups, assign which hosts are in the 
+        ipv6 pool, etc. just a thought.
 
-        And, keeping slices.py as a concise description of what and how slices
-        are deployed to M-Lab.
+        Keeping slices.py as a concise description of what and how slices
+        are deployed to M-Lab is probably still helpful to see everything in
+        one place.
 """
 
 def main():
