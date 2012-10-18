@@ -16,8 +16,16 @@ def usage():
     Examples:
         ./apply --dryrun --site nuq01
         ./apply --dryrun --hostname mlab4.nuq01.measurement-lab.org
-
-
+        ./apply --context site=ams01 --update {site, host, slice}
+            sitename --apply site cfg
+            sitename --apply host cfg
+            sitename --apply slice cfg
+            hostname --apply host cfg
+            hostname --apply slice cfg
+            slicename --apply site cfg
+            slicename --apply host cfg
+            slicename --apply attrs 
+        
 """
 
 def main():
@@ -60,9 +68,11 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+    print "setup session"
     session.setup_global_session(options.url, options.debug, options.verbose)
 
     # always setup the configuration for everything (very fast)
+    print "loading slice & site cfg"
     for slice in slice_list:
         for site in site_list:
             for host in site['nodes']:
@@ -100,7 +110,7 @@ def main():
                     site.sync()
             pass
 
-        if options.hostname:
+        if options.hostname and not options.slicename:
             print "hostname"
             for site in site_list:
                 for host in site['nodes']:
@@ -111,11 +121,11 @@ def main():
             pass
 
         if options.slicename:
-            print "slicename"
+            print "slicename", options.slicename
             for slice in slice_list: 
-                if slice['name']  == options.slicename:
-                    print slice
-                    slice.sync()
+                if slice['name'] == options.slicename:
+                    #print slice
+                    slice.sync(options.hostname)
             pass
 
     else:

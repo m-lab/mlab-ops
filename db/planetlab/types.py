@@ -265,8 +265,9 @@ class Node(dict):
             MakeInterfaceTags(self.hostname(), node_id, interface, self.v6interface_tags())
 
 class Attr(dict):
-    def __str__(self):
-        return pprint.pformat(self)
+    #def __str__(self):
+    #    #return pprint.pformat(self)
+    #    return str(self)
     def __init__(self, *args, **kwargs):
         if len(args) != 1:
             raise Exception("The first argument should be the name of a NodeGroup, hostname, or None")
@@ -292,12 +293,13 @@ class Slice(dict):
     def __init__(self, *args, **kwargs):
         if 'name' not in kwargs:
             raise Exception("The first argument should be the name of a NodeGroup, hostname, or None")
-
         if 'index' not in kwargs:
             kwargs['index'] = None
         if 'ipv6' not in kwargs:
             # None means ipv6 is OFF by default
             kwargs['ipv6'] = None
+        else:
+            kwargs['ipv6'] = [ h+'.measurement-lab.org' for h in kwargs['ipv6'] ]
 
         # *ALL* K32 kernels will need the isolate_loopback enabled.
         LOOPBACK=Attr('MeasurementLabK32', isolate_loopback='1')
@@ -320,21 +322,23 @@ class Slice(dict):
         net_tuple = (h, ipv4, "")
         # the node has ipv6, and the hostname is in the slice's ipv6 list,
         # or, ipv6 == "all"
+              #( (type(self['ipv6']) == type([]) and h[:11] in self['ipv6']) or 
         if ( not node['exclude_ipv6'] and 
-              ( (type(self['ipv6']) == type([]) and     h in self['ipv6']) or 
+              ( (type(self['ipv6']) == type([]) and h     in self['ipv6']) or 
                 (type(self['ipv6']) == str      and "all" in self['ipv6']) )
            ):
             net_tuple = (h, ipv4, ipv6)
         self['network_list'].append( net_tuple )
         
-    def sync(self):
+    def sync(self, hostname=None):
         # NOTE: SLICES ARE NOT CREATED HERE.
-        #       USERS ARE NOT ADDED TO SLICES HERE.
+        #       USERS  ARE NOT ADDED TO SLICES HERE.
         for attr in self['attrs']:
-            print attr
-            #MakeSliceAttribute(self['name'], attr)
-        print self['network_list']
+            MakeSliceAttribute(self['name'], attr)
         for h,v4,v6 in self['network_list']:
-            print self['name'], h,"ip_addresses=",v4,",",v6
+            if hostname is None or h == hostname:
+                val = v4 if v6=="" else v4+","+v6
+                attr = Attr(h, ip_addresses=val)
+                MakeSliceAttribute(self['name'], attr)
 
 

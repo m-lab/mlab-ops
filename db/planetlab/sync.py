@@ -249,13 +249,67 @@ def MakeInterface(hostname, node_id, interface, is_primary):
     #    print "'iplist' : %s" % [ a for a in unspecified_ips_in_db ]
     #    print "WARNING: UNSPECIFIED IP addrs !!! found in DB for host %s" % (host)
 
-def MakeSliceAttribute(name, attr):
-    return 0
-    print name, attr
-    sliceattrs = api.GetSliceTags({'slice_id' : slice_id, 'tagname' :'ip_addresses'})
-    assigned = filter(lambda attr: attr['node_id'] == node['node_id'], sliceattrs)
-    if len(assigned) != 0:
-        print "Deleting: slice tag ip_addresses from %s on %s" % (slicename, node['hostname'])
-        api.DeleteSliceTag(assigned[0]['slice_tag_id'])
-    api.AddSliceTag(slicename, 'ip_addresses', nnet['ip'], node['node_id'])
+def MakeSliceAttribute(slicename, attr):
+    #{ 'attrtype': 'nodegroup',
+    #  'disk_max': '50000000',
+    #  'nodegroup': 'MeasurementLab' }
+
+    tag_filter = {'name' : slicename}
+    #print slicename, attr
+    nd_id=None
+    ng_id=None
+    if attr['attrtype'] == None:
+        # apply to all nodes
+        ng=None
+        nd=None
+    elif attr['attrtype'] == "hostname":
+        # apply to a node
+        ng=None
+        nd=attr[attr['attrtype']]
+        nd_id = s.api.GetNodes({'hostname' : nd}, ['node_id'])[0]['node_id']
+        tag_filter['node_id'] = nd_id
+    elif attr['attrtype'] == "nodegroup":
+        # apply to a nodegroup
+        ng=attr[attr['attrtype']]
+        ng_id = s.api.GetNodeGroups({'groupname' : ng}, 
+                        ['nodegroup_id'])[0]['nodegroup_id']
+        # NOTE: ']' means >=, '[' means <= 
+        # HACK: these two directives work around a bug that prevents search 
+        #       on strict match.  Need to submit patch.
+        tag_filter[']nodegroup_id'] = ng_id
+        tag_filter['[nodegroup_id'] = ng_id
+        nd=None
+    else:
+        raise Exception("no attrtype in %s" % attr)
+
+    sub_attr = {}
+    for k in attr.keys():
+        if k not in ['attrtype', attr['attrtype']]:
+            sub_attr[k] = attr[k]
+            # NOTE: GetSliceTags does not support nodegroup_id filtering :-/
+            tag_filter['tagname'] = k
+            sliceattrs = s.api.GetSliceTags(tag_filter)
+            if len(sliceattrs) == 0:
+                print "ADD: slice tag %s->%s for %s" % (k, attr[k], slicename)
+                s.api.AddSliceTag(slicename, k, attr[k], nd, ng)
+            elif len(sliceattrs) == 1:
+                if ( sliceattrs[0]['node_id'] == nd_id and 
+                     sliceattrs[0]['nodegroup_id'] == ng_id ):
+                    #print "Confirmed: slice tag %s->%s on %s node:%s,%s" % (k, attr[k], slicename, nd, ng)
+                    print "Confirmed: %s -> (%s,%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                else:
+                    print "Uh-oh: slice tag %s->%s on %s missing ng_id:%s or nd_id:%s" % (
+                                k, attr[k], slicename, ng_id, nd_id)
+            else:
+                # NOTE: this gets more complicated.
+                print "ERR: There are multiple SliceTags that match: %s" % tag_filter
+                for x in sliceattrs:
+                    print x
+                sys.exit(1)
+
+    #assigned = filter(lambda attr: attr['node_id'] == node['node_id'], sliceattrs)
+    #if len(assigned) != 0:
+    #    print "Deleting: slice tag ip_addresses from %s on %s" % (slicename, node['hostname'])
+    #    api.DeleteSliceTag(assigned[0]['slice_tag_id'])
+    #api.AddSliceTag(slicename, 'ip_addresses', nnet['ip'], node['node_id'])
 
