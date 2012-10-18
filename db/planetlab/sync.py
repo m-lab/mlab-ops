@@ -258,7 +258,7 @@ def MakeSliceAttribute(slicename, attr):
     #print slicename, attr
     nd_id=None
     ng_id=None
-    if attr['attrtype'] == None:
+    if attr['attrtype'] == "all":
         # apply to all nodes
         ng=None
         nd=None
@@ -290,13 +290,16 @@ def MakeSliceAttribute(slicename, attr):
             tag_filter['tagname'] = k
             sliceattrs = s.api.GetSliceTags(tag_filter)
             if len(sliceattrs) == 0:
-                print "ADD: slice tag %s->%s for %s" % (k, attr[k], slicename)
+                print "ADDING   : %s -> (%s->%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
                 s.api.AddSliceTag(slicename, k, attr[k], nd, ng)
             elif len(sliceattrs) == 1:
                 if ( sliceattrs[0]['node_id'] == nd_id and 
                      sliceattrs[0]['nodegroup_id'] == ng_id ):
-                    #print "Confirmed: slice tag %s->%s on %s node:%s,%s" % (k, attr[k], slicename, nd, ng)
-                    print "Confirmed: %s -> (%s,%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                    if sliceattrs[0]['value'] == attr[k]:
+                        print "Confirmed: %s -> (%s,%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                    else:
+                        print "UPDATING : %s -> (%s,%s,%s) from '%s' to '%s'" % (slicename, k, nd, ng, sliceattrs[0]['value'], attr[k])
+                        s.api.UpdateSliceTag(sliceattrs[0]['slice_tag_id'], attr[k])
                 else:
                     print "Uh-oh: slice tag %s->%s on %s missing ng_id:%s or nd_id:%s" % (
                                 k, attr[k], slicename, ng_id, nd_id)
@@ -313,3 +316,39 @@ def MakeSliceAttribute(slicename, attr):
     #    api.DeleteSliceTag(assigned[0]['slice_tag_id'])
     #api.AddSliceTag(slicename, 'ip_addresses', nnet['ip'], node['node_id'])
 
+def WhitelistSliceOnNode(slicename, hostname):
+    """
+        confirm that slice is added to each host both with
+            AddSliceToNodesWhitelist
+            AddSliceToNodes
+        any slice not in this list.
+        
+        NOTE: however, stray slices are not deleted from hosts 
+    """
+
+    # Add slices to Nodes and NodesWhitelist
+    nodes = s.api.GetNodes(hostname)
+    slices = s.api.GetSlices(slicename)
+
+    for node in nodes:
+        slice_ids_on_node = node["slice_ids"]
+        slice_ids_on_node_whitelist = node["slice_ids_whitelist"]
+        slice_ids_toaddto_whitelist = [ slice['slice_id'] for slice in slices ]
+
+        for slice in slices:
+
+            if slice['slice_id'] not in slice_ids_on_node:
+                print "Adding %s to hosts: %s" % (slice['name'], node['hostname'])
+                s.api.AddSliceToNodes(slice['slice_id'],[node['hostname']])
+            else:
+                print "Confirmed: %s is assigned to %s" % (slice['name'], node['hostname'])
+            
+            if slice['slice_id'] not in slice_ids_on_node_whitelist:
+                # then this slice is not on this node's whitelist
+                print "Adding %s to whitelist on host: %s" % (slice['name'], node['hostname'])
+                s.api.AddSliceToNodesWhitelist(slice['slice_id'],[node['hostname']])
+            else:
+                print "Confirmed: %s is whitelisted on %s" % (slice['name'], node['hostname'])
+
+    # NOTE: this approach does not delete stray slices from whitelist
+    return
