@@ -23,7 +23,6 @@ def MakePerson(first_name, last_name, email):
         fields = {"first_name":first_name, "last_name":last_name, "email":email, "password":"clara_abcdefg"}
         personid = s.api.AddPerson(fields)
         s.api.UpdatePerson(personid, {'enabled': True})
-        pipersonid = personid
     elif len(persons)==1:
         personid=persons[0]['person_id']
     else:
@@ -47,7 +46,7 @@ def AddPersonToSite(email,personid,role,loginbase):
 def MakeNode(login_base, hostname):
     node_list = s.api.GetNodes(hostname)
     if len(node_list) == 0:
-        print "Adding Node %s to site %s" % (host, site['login_base'])
+        print "Adding Node %s to site %s" % (hostname, login_base)
         node_id = s.api.AddNode(login_base, { 'boot_state' : 'reinstall',
                                             'model' : 'unknown',
                                             'hostname' : hostname,} )
@@ -59,8 +58,8 @@ def MakeNode(login_base, hostname):
 def MakePCU(login_base, node_id, pcu_fields):
     pcu_list = s.api.GetPCUs({'hostname' : pcu_fields['hostname']})
     if len(pcu_list) == 0:
-        print "Adding PCU to %s: %s", (host, pcu_fields )
-        pcu_id = s.api.AddPCU(loginbase, pcu_fields)
+        print "Adding PCU to %s: %s", (node_id, pcu_fields )
+        pcu_id = s.api.AddPCU(login_base, pcu_fields)
         s.api.AddNodeToPCU(node_id, pcu_id, 1)
     else:
         if node_id in pcu_list[0]['node_ids']:
@@ -77,8 +76,8 @@ def PutNodeInNodegroup(hostname, node_id, nodegroup_name):
         # NB: both are in the DB.
         # if node not in nodegroup then add it
         if nodegroup_list[0]['nodegroup_id'] not in node_list[0]['nodegroup_ids']:
-            print "ADDING: %s to nodegroup %s" % (host, nodegroup_name)
-            s.api.AddNodeTag(host, 'deployment', nodegroup_name)
+            print "ADDING: %s to nodegroup %s" % (hostname, nodegroup_name)
+            s.api.AddNodeTag(hostname, 'deployment', nodegroup_name)
         else:
             print "Confirmed: %s is in nodegroup %s"  % (hostname, nodegroup_name)
     else:
@@ -103,19 +102,7 @@ def PutNodeInNodegroup(hostname, node_id, nodegroup_name):
         #        if (n,v) not in ok_tags:
         #            api.AddNodeTag(host, n, v)
 
-def MakeInterfacesV6(hostname, node_id, interface, ipaddrs):
-    if 'v6prefix' in hostnetworks[host]:
-        v6prefix = hostnetworks[host]['v6prefix']
-    else:
-        v6prefix = None
-    if 'v6gw' in hostnetworks[host]:
-        v6gw = hostnetworks[host]['v6gw']
-    else:
-        v6gw = None
-
-    #ip6setup(node['hostname'], v6prefix, v6gw)
-
-def MakeInterfaceTags(hostname, node_id, interface, tagvalues):
+def MakeInterfaceTags(node_id, interface, tagvalues):
     filter_dict = { "node_id" : node_id, 'ip' : interface['ip'] }
     interface_found = s.api.GetInterfaces(filter_dict)
 
@@ -143,12 +130,13 @@ def MakeInterfaceTags(hostname, node_id, interface, tagvalues):
                 print "ADD: tag %s->%s for %s" % (k,v['value'],interface['ip'])
                 tag_id = s.api.AddInterfaceTag(interface_found[0]['interface_id'],tid,v['value'])
                 if tag_id <= 0:
-                    print "BUG: AddInterfaceTag(%d,%s) failed" % (iinterface_found[0]['interface_id'],v['value'])
+                    print "BUG: AddInterfaceTag(%d,%s) failed" % (
+                                interface_found[0]['interface_id'],v['value'])
                     sys.exit(1)
             else:
                 # update setting
                 tag = v['tag']
-                if tag['value'] != v['value'] and k is not 'alias':
+                if tag['value'] != v['value'] and k != 'alias':
                     print "UPDATE: tag %s from %s->%s for %s" % (k,v['tag']['value'],v['value'],interface['ip'])
                     tag_id = tag['interface_tag_id']
                     s.api.UpdateInterfaceTag(tag_id,v['value'])
@@ -201,7 +189,7 @@ def MakeInterface(hostname, node_id, interface, is_primary):
             "alias"  : str(i_id),
             "ifname" : "eth0"
         }
-        MakeInterfaceTags(hostname, node_id, interface, goal)
+        MakeInterfaceTags(node_id, interface, goal)
 
 #    goal = {
 #        "alias"  : {"tag_type_id":None, "tag":None, "value":str(i_id)},
@@ -333,22 +321,21 @@ def WhitelistSliceOnNode(slicename, hostname):
     for node in nodes:
         slice_ids_on_node = node["slice_ids"]
         slice_ids_on_node_whitelist = node["slice_ids_whitelist"]
-        slice_ids_toaddto_whitelist = [ slice['slice_id'] for slice in slices ]
 
-        for slice in slices:
+        for sslice in slices:
 
-            if slice['slice_id'] not in slice_ids_on_node:
-                print "Adding %s to hosts: %s" % (slice['name'], node['hostname'])
-                s.api.AddSliceToNodes(slice['slice_id'],[node['hostname']])
+            if sslice['slice_id'] not in slice_ids_on_node:
+                print "Adding %s to hosts: %s" % (sslice['name'], node['hostname'])
+                s.api.AddSliceToNodes(sslice['slice_id'],[node['hostname']])
             else:
-                print "Confirmed: %s is assigned to %s" % (slice['name'], node['hostname'])
+                print "Confirmed: %s is assigned to %s" % (sslice['name'], node['hostname'])
             
-            if slice['slice_id'] not in slice_ids_on_node_whitelist:
+            if sslice['slice_id'] not in slice_ids_on_node_whitelist:
                 # then this slice is not on this node's whitelist
-                print "Adding %s to whitelist on host: %s" % (slice['name'], node['hostname'])
-                s.api.AddSliceToNodesWhitelist(slice['slice_id'],[node['hostname']])
+                print "Adding %s to whitelist on host: %s" % (sslice['name'], node['hostname'])
+                s.api.AddSliceToNodesWhitelist(sslice['slice_id'],[node['hostname']])
             else:
-                print "Confirmed: %s is whitelisted on %s" % (slice['name'], node['hostname'])
+                print "Confirmed: %s is whitelisted on %s" % (sslice['name'], node['hostname'])
 
     # NOTE: this approach does not delete stray slices from whitelist
     return

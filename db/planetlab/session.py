@@ -4,7 +4,6 @@ import getpass
 import xmlrpclib
 import os
 import sys
-import re
 
 SESSION_DIR=os.environ['HOME'] + "/.ssh"
 SESSION_FILE=SESSION_DIR + "/mlab_session"
@@ -74,6 +73,7 @@ def refreshsession():
     f.close()
 
 def getapi(debug=False, verbose=False):
+    global api
     api = xmlrpclib.ServerProxy(API_URL, allow_none=True)
     auth = None
     authorized = False

@@ -106,11 +106,11 @@ def main():
 
     # always setup the configuration for everything (very fast)
     print "loading slice & site configuration"
-    for slice in slice_list:
+    for sslice in slice_list:
         for site in site_list:
             for host in site['nodes']:
                 h = site['nodes'][host]
-                slice.add_node_address(h)
+                sslice.add_node_address(h)
 
     # begin processing arguments to apply filters, etc
     if ( options.syncsite is not None or 
@@ -127,11 +127,11 @@ def main():
 
         if options.syncslice:
             print options.syncslice
-            for slice in slice_list: 
+            for sslice in slice_list: 
                 if (options.syncslice == "all" or 
-                    options.syncslice == slice['name']):
-                    print "Syncing: slice", slice['name']
-                    slice.sync(options.ondest, 
+                    options.syncslice == sslice['name']):
+                    print "Syncing: slice", sslice['name']
+                    sslice.sync(options.ondest, 
                                options.skipwhitelist, 
                                options.skipsliceips)
 

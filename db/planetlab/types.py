@@ -29,7 +29,8 @@ def pl_interface(host_index, v4prefix):
 
 def pl_v6_iplist(host_index, v6prefix, last_octet):
     mlab_offset = last_octet + ((host_index - 1) * 13) + 9
-    return [ v6prefix+"%s"%ip for ip in range(mlab_offset + 1, mlab_offset + 13) ]
+    foo = [ v6prefix+"%s"%ip for ip in range(mlab_offset + 1, mlab_offset + 13) ]
+    return foo
 
 def pl_v6_primary(host_index, v6prefix, last_octet):
     mlab_offset = last_octet + ((host_index - 1) * 13) + 9
@@ -37,7 +38,8 @@ def pl_v6_primary(host_index, v6prefix, last_octet):
 
 def pl_iplist(host_index, v4prefix):
     (net_prefix, net_offset, mlab_offset) = breakdown(host_index, v4prefix)
-    return [ '%s.%s' % (net_prefix,ip) for ip in range(mlab_offset + 1, mlab_offset + 13) ]
+    foo = [ '%s.%s' % (net_prefix,ip) for ip in range(mlab_offset + 1, mlab_offset + 13) ]
+    return foo
 
 def pl_dracip(host_index, v4prefix):
     (net_prefix, net_offset, mlab_offset) = breakdown(host_index, v4prefix)
@@ -166,7 +168,7 @@ class Site(dict):
         super(Site, self).__init__(**kwargs)
 
     def sync(self, onhost=None):
-        site = MakeSite(self['login_base'], self['sitename'], self['sitename'])
+        MakeSite(self['login_base'], self['sitename'], self['sitename'])
         for person in self['pi']:
             p_id = MakePerson(*person)
             email = person[2]
@@ -252,13 +254,13 @@ class Node(dict):
 
     def sync(self):
         node_id = MakeNode(self['login_base'], self.hostname())
-        pcu_id  = MakePCU(self['login_base'], node_id, self['pcu'].fields())
+        MakePCU(self['login_base'], node_id, self['pcu'].fields())
         PutNodeInNodegroup(self.hostname(), node_id, self['nodegroup'])
         interface = self.interface()
         MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
 
         if not self['exclude_ipv6']:
-            MakeInterfaceTags(self.hostname(), node_id, interface, self.v6interface_tags())
+            MakeInterfaceTags(node_id, interface, self.v6interface_tags())
 
         for ip in self.iplist():
             interface['ip'] = ip
@@ -292,7 +294,7 @@ class Slice(dict):
     def __str__(self):
         return "\n%s \n\t %s" % (self['name'], pprint.pformat(self))
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         if 'name' not in kwargs:
             raise Exception("The first argument should be the name of a NodeGroup, hostname, or None")
         if 'index' not in kwargs:
