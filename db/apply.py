@@ -81,7 +81,7 @@ def main():
                         help="PLC url to contact")
 
     parser.add_option("", "--on", metavar="hostname", dest="ondest", 
-                        help="only act on the given site")
+                        help="only act on the given host")
 
     parser.add_option("", "--syncsite", metavar="site", dest="syncsite", 
                 help="only sync sites, nodes, pcus, if needed. (saves time)")
