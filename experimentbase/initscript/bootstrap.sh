@@ -11,7 +11,6 @@ function assert_dir () {
 }
 
 function sanity_checks () {
-
     # SANITY CHECKS AND ENVIRONMENT SETUP
     # check for root user
     if [ $UID -ne "0" ] ;
@@ -41,7 +40,9 @@ function setup_crond () {
         # START CROND IF IT IS NOT RUNNING
         /sbin/service crond start
     fi
+}
 
+function setup_crond_hourly_update () {
     # copy this script to run hourly.
     if [ -f $SCRIPT ] && [ ! -f /etc/cron.hourly/$( basename $SCRIPT ) ] ; then
         assert_dir "/etc/cron.hourly"
@@ -134,6 +135,9 @@ EOF
     # NOTE: rename tmp file to proper filename
     cp $STAGE2_FN /tmp/$STAGE2_FILE 
 }
+function unpack_and_install () {
+    filename=$1
+}
 
 function start () {
     FILENAME=$( basename $PACKAGE_MANAGE )
@@ -141,7 +145,14 @@ function start () {
     RETVAL=$?
     if [ $RETVAL -eq 0 ] ; then
         # TODO: unpack $FILENAME
+        unpack_and_install $FILENAME
     fi
+}
+
+function update () {
+    # TODO: check for most recent version
+    #       initiate 'start' if needed.
+    echo "update"
 }
 
 function reset () {
@@ -153,33 +164,33 @@ SCRIPT=$0
 COMMAND=$1
 SLICENAME=$2
 
-if [ $COMMAND != "reset" ]; then
-    sanity_checks
-    setup_crond
-    SLICENAME=`cat /etc/slicename`
-else
-    SLICENAME="blah"
+if [ $COMMAND = "reset" ]; then
+    reset
+    exit $?
 fi
-
-PACKAGE_MANAGE="http://ks.measurementlab.net/slice-management-package.tar.gz"
-PACKAGE_SLICE="http://ks.measurementlab.net/slice-packages/$SLICENAME.tar.gz"
-
 if [ -z "$COMMAND" ] ; then
     # SET A DEFAULT COMMAND, when started from CRON
-    COMMAND=start
+    COMMAND=update
 fi
+
+sanity_checks
+setup_crond
+setup_crond_hourly_update
+SLICENAME=`cat /etc/slicename`
+PACKAGE_MANAGE="http://ks.measurementlab.net/slice-management-package.tar.gz"
+PACKAGE_SLICE="http://ks.measurementlab.net/slice-packages/$SLICENAME.tar.gz"
 
 case "$COMMAND" in
     start)
         start
         RETVAL=$?
         ;;
-    reset)
-        reset 
+    update)
+        update
         RETVAL=$?
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|status}"
+        echo "Usage: $0 {start|update|reset}"
         exit 1
         ;;
 esac
