@@ -47,6 +47,9 @@ slice_list = [
     Slice(name="pl_default"),
     Slice(name="princeton_comon"),
     Slice(name="princeton_slicestat"),
-    Slice(name="mlab_ops"),
+    Slice(name="mlab_ops", attrs=[
+                    Attr(None, vsys='slice_restart'),
+                    Attr(None, vsys='slice_recreate'),
+               ]),
 ]
 

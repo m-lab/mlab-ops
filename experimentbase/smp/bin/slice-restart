@@ -1,0 +1,6 @@
+#!/bin/bash
+
+if [ -f /vsys/slice_restart.out ] ; then
+    cat /vsys/slice_restart.out &
+    echo "1" > /vsys/slice_restart.in
+fi

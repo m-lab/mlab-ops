@@ -98,15 +98,6 @@ rsyncpath_to_filesystempath = {
 def get_last_collection_dates_for(fout, slicename):
 
     # ClientLogin to access spreadsheet
-    #gd_client = gdata.spreadsheet.service.SpreadsheetsService()
-    #gd_client.email = SPREADSHEET_USER
-    #gd_client.password = SPREADSHEET_PASSWORD
-    #gd_client.source = sys.argv[0]
-    #gd_client.ProgrammaticLogin()
-
-    #spec_feed = gd_client.GetListFeed(SPREADSHEET_KEY,
-    #                                  SPREADSHEET_WORKSHEET_ID)
-
     client = gdata.spreadsheet.service.SpreadsheetsService()  
     spec_feed = client.GetListFeed(SPREADSHEET_KEY, SPREADSHEET_WORKSHEET_ID, 
                     visibility="public", projection="values")
@@ -158,10 +149,10 @@ def visit_and_delete(args, dirname, filenames):
             elif s.st_mtime < ts_last_collection and os.path.isdir(full_path):
                 print >>fout, "safely removing: (%s, %sKB) /%s" % ( total_count, 
                             total_size/1024, "/".join(full_path.split("/")[3:]) )
-                #if not DEBUG and len(listdir())==0:
                 if not DEBUG and len(os.listdir(full_path))==0:
-                    print "REMOVING: %s" % full_path
+                    print >>fout, "safely removing dir: %s" % full_path
                     os.rmdir(fullpath)
+
         except Exception, e:
             print >>fout, "error regarding: %s" % e
 

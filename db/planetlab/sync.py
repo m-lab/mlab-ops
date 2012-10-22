@@ -277,26 +277,53 @@ def MakeSliceAttribute(slicename, attr):
             # NOTE: GetSliceTags does not support nodegroup_id filtering :-/
             tag_filter['tagname'] = k
             sliceattrs = s.api.GetSliceTags(tag_filter)
-            if len(sliceattrs) == 0:
-                print "ADDING   : %s -> (%s->%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
-                s.api.AddSliceTag(slicename, k, attr[k], nd, ng)
-            elif len(sliceattrs) == 1:
-                if ( sliceattrs[0]['node_id'] == nd_id and 
-                     sliceattrs[0]['nodegroup_id'] == ng_id ):
-                    if sliceattrs[0]['value'] == attr[k]:
-                        print "Confirmed: %s -> (%s,%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+            attrsfound = filter(lambda a: a['value'] == attr[k], sliceattrs)
+            if k in ['vsys']:
+                # NOTE: these keys can have multiples with different values.
+                #       So, do not perform updates.
+                if len(attrsfound) == 0:
+                    print "ADDING   : %s -> (%s->%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                    if nd is None and ng is None: 
+                        s.api.AddSliceTag(slicename, k, attr[k])
                     else:
-                        print "UPDATING : %s -> (%s,%s,%s) from '%s' to '%s'" % (slicename, k, nd, ng, sliceattrs[0]['value'], attr[k])
-                        s.api.UpdateSliceTag(sliceattrs[0]['slice_tag_id'], attr[k])
-                else:
-                    print "Uh-oh: slice tag %s->%s on %s missing ng_id:%s or nd_id:%s" % (
-                                k, attr[k], slicename, ng_id, nd_id)
+                        s.api.AddSliceTag(slicename, k, attr[k], nd, ng)
+                elif len(attrsfound) >= 1:
+                    confirmed = False
+                    for af in attrsfound:
+                        if ( af['node_id'] == nd_id and 
+                             af['nodegroup_id'] == ng_id ):
+                            if af['value'] == attr[k]:
+                                print "Confirmed: %s -> (%s,%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                                confirmed=True
+                    if not confirmed:
+                        print "Found attr value but maybe in wrong NG/Node?"
+                        print "?SHOULD I UPDATE THIS? %s with %s" % (af, attr)
             else:
-                # NOTE: this gets more complicated.
-                print "ERR: There are multiple SliceTags that match: %s" % tag_filter
-                for x in sliceattrs:
-                    print x
-                sys.exit(1)
+                # NOTE: these keys should only have a single value for the given key
+                if len(sliceattrs) == 0:
+                    print "ADDING   : %s -> (%s->%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                    if nd is None and ng is None: 
+                        s.api.AddSliceTag(slicename, k, attr[k])
+                    else:
+                        s.api.AddSliceTag(slicename, k, attr[k], nd, ng)
+
+                elif len(sliceattrs) == 1:
+                    if ( sliceattrs[0]['node_id'] == nd_id and 
+                         sliceattrs[0]['nodegroup_id'] == ng_id ):
+                        if sliceattrs[0]['value'] == attr[k]:
+                            print "Confirmed: %s -> (%s,%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                        else:
+                            print "UPDATING : %s -> (%s,%s,%s) from '%s' to '%s'" % (slicename, k, nd, ng, sliceattrs[0]['value'], attr[k])
+                            s.api.UpdateSliceTag(sliceattrs[0]['slice_tag_id'], attr[k])
+                    else:
+                        print "Uh-oh: slice tag %s->%s on %s missing ng_id:%s or nd_id:%s" % (
+                                    k, attr[k], slicename, ng_id, nd_id)
+                else:
+                    # NOTE: this gets more complicated.
+                    print "ERR: There are multiple SliceTags that match: %s" % tag_filter
+                    for x in sliceattrs:
+                        print x
+                    sys.exit(1)
 
     #assigned = filter(lambda attr: attr['node_id'] == node['node_id'], sliceattrs)
     #if len(assigned) != 0:
