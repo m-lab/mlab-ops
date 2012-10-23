@@ -1,0 +1,66 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          slicectrl
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Control M-Lab slices
+# Description:       SliceCTRL is a management stub for stream-lining 
+#                    the tasks for M-Lab slice management.
+### END INIT INFO
+
+COMMAND="$1"
+shift
+
+source /etc/slice-functions
+source /etc/init.d/slicectrl-functions
+
+SLICENAME=$( get_slice_name )
+
+PATH=$PATH:/sbin:/bin:/usr/sbin:/usr/bin
+
+function restart() {
+    stop
+    start
+}
+
+function stop () {
+    echo "stopping" 
+    stop_rsync
+    stop_slice
+}
+
+function start () {
+    echo "starting"
+    start_rsync
+    start_slice
+}
+
+case $COMMAND in
+    update)
+    ;;
+    configure)
+    ;;
+    verify)
+    ;;
+    restart)
+        restart
+    ;;
+    start)
+        # start rsyncd
+        start
+    ;;
+    stop)
+        # stop rsyncd
+        stop
+    ;;
+    register)
+        # ping ks.* or mlc.*
+    ;;
+    unregister)
+        # ping ks.* or mlc.*
+        # this is going to be best effort.
+    ;;
+    cleandisk)
+    ;;
+esac

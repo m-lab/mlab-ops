@@ -1,0 +1,22 @@
+#!/bin/bash
+
+source /etc/slice-functions
+
+function start_rsync () {
+    rsync --daemon --config=/etc/rsyncd.conf --verbose
+}
+function stop_rsync () {
+    pkill -f rsync
+}
+
+function start_slice () {
+    echo "TODO: start slice.."    
+    slicename=$( get_slice_name )
+    if [ -f /home/$slicename/current/bin/start ] ; then
+        /home/$slicename/current/bin/start 
+    fi
+}
+
+function stop_slice () {
+    echo "TODO: stop slice.."    
+}
