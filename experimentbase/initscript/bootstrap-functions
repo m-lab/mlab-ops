@@ -1,15 +1,6 @@
 #!/bin/bash
 
-set -x
-set -e
-
 # SETUP FUNCTIONS
-function assert_dir () {
-    local dir=$1
-    /usr/bin/test -d $dir || ( 
-            echo "ERROR: No $dir!" && exit 1 )
-}
-
 function sanity_checks () {
     # SANITY CHECKS AND ENVIRONMENT SETUP
 
@@ -37,46 +28,10 @@ function sanity_checks () {
         # SAVE SLICENAME
         echo $SLICENAME > /etc/slicename
     fi
-}
 
-function setup_crond () {
-    # ENABLE CROND
-    /sbin/chkconfig rsyslog on
-    l=`pgrep -f rsyslogd | wc -l`
-    if [ $l -eq 0 ] ; then
-        service rsyslog start 
-    fi
-    /sbin/chkconfig crond on
-    l=`pgrep -f crond | wc -l`
-    if [ $l -eq 0 ] ; then
-        # START CROND IF IT IS NOT RUNNING
-        cat <<EOF > /usr/bin/fakemail.sh
-#!/bin/bash
-cat >> /var/log/cron.output
-EOF
-        chmod 755 /usr/bin/fakemail.sh
-        cat <<EOF > /etc/logrotate.d/cronoutput
-/var/log/cron.output {
-    copytruncate
-    compress
-    monthly
-    notifempty
-    rotate 5
-    missingok
-}
-EOF
-        echo "CRONDARGS='-m /usr/bin/fakemail.sh'" > /etc/sysconfig/crond
-        /sbin/service crond start
-    fi
-}
-
-function setup_crond_hourly_update () {
-    # link this script to run hourly.
-    CRONSCRIPT=/etc/cron.hourly/$( basename $SCRIPT )
-    if [ -f $SCRIPT ] && \
-       [ ! -e $CRONSCRIPT  ] ; then
-        assert_dir "/etc/cron.hourly"
-        ln -s $SCRIPT $CRONSCRIPT
+    if ! enough_disk_space ; then
+        echo "There is not enough disk space to continue!"
+        exit 1
     fi
 }
 
@@ -163,12 +118,50 @@ EOF
 
     echo "GOT STAGE2!"
     # NOTE: rename tmp file to proper filename
-    mkdir -p /etc/mlab/packages
-    cp $STAGE2_FN /etc/mlab/packages/$STAGE2_FILE 
+    mkdir -p $PREFIX/packages
+    cp $STAGE2_FN $PREFIX/packages/$STAGE2_FILE 
     rm -f $PUBKEY_FN
     rm -f $STAGE2_FN
     rm -f $STAGE2_SIGNATURE_FN
     rm -f $STAGE2_SIGNATURE_URL
+}
+
+function save_etag_from_url () {
+    local url=$1
+    local file=$( basename $url )
+    ETAG=$( get_etag_from_url $url )
+    mkdir -p $PREFIX/etag/
+    if [ -z "$ETAG" ] ; then
+        return 1
+    else
+        echo $ETAG > $PREFIX/etag/$file
+        return 0
+    fi
+}
+
+function get_etag_from_url () {
+    local url=$1
+    ETAG=`curl -s -I $url | grep ETag | awk '{print $2}'`
+    echo $ETAG
+}
+
+function get_etag_from_file () {
+    local url=$1
+    local file=$( basename $url )
+    ETAG=`cat $PREFIX/etag/$file 2> /dev/null`
+    echo $ETAG
+}
+
+function package_setup () {
+    local url=$1
+    local filename=$( basename $url )
+    get_package_and_verify $url
+    RETVAL=$?
+    if [ $RETVAL -eq 0 ] ; then
+        if unpack_and_install $filename ; then
+            save_etag_from_url $url
+        fi
+    fi
 }
 
 function package_is_latest () {
@@ -183,95 +176,36 @@ function package_is_latest () {
     fi
 }
 
-function save_etag_from_url () {
-    local url=$1
-    local file=$( basename $url )
-    ETAG=$( get_etag_from_url $url )
-    mkdir -p /etc/mlab/etag/
-    if [ -z "$ETAG" ] ; then
-        return 1
-    else
-        echo $ETAG > /etc/mlab/etag/$file
+function enough_disk_space () {
+    blocks_available=`df | grep dev | awk '{print $4}'`
+    if [ $blocks_available -gt 10240 ] ; then
+        # at least 10MB are available.
         return 0
     fi
-}
-
-function get_etag_from_url () {
-    local url=$1
-    ETAG=`curl -s -I $url | grep ETag | awk '{print $2}'`
-    echo $ETAG
-}
-
-function get_etag_from_file () {
-    local url=$1
-    local file=$( basename $url )
-    ETAG=`cat /etc/mlab/etag/$file 2> /dev/null`
-    echo $ETAG
-}
-
-function package_setup () {
-    FILENAME=$( basename $PACKAGE_MANAGE )
-    get_package_and_verify $PACKAGE_MANAGE
-    RETVAL=$?
-    if [ $RETVAL -eq 0 ] ; then
-        # TODO: unpack $FILENAME
-        unpack_and_install $FILENAME
-        save_etag_from_url $PACKAGE_MANAGE
-    fi
+    return 1
 }
 
 function unpack_and_install () {
     filename=$1
-}
-
-function update () {
-    # TODO: check for most recent version
-    #       initiate 'start' if needed.
-    echo "update"
-    if package_is_latest $PACKAGE_MANAGE ; then
-        echo "package is latest"
-    else 
-        echo "package is NOT latest"
-        package_setup
+    mkdir -p $PREFIX/install
+    cd $PREFIX/install
+    if [ -d current ] ; then
+        suffix=`date +%Y-%m-%d-%H:%M`
+        if [ -d previous-$suffix ] ; then
+            suffix=${suffix}-0
+        fi
+        mv current previous-$suffix
+    fi
+    mkdir -p current
+    tar -C current -zxf $PREFIX/packages/$filename
+    if [ -f current/install.sh ] ; then
+        cd current;
+        ./install.sh
+        return $?
+    else
+        echo "NO SUCH FILE: $PREFIX/install/current/install.sh" 
+        return 1
     fi
 }
 
-function reset () {
-    rm -f /etc/slicename
-    rm -f /etc/cron.hourly/bootstrap.sh
-    rm -rf /etc/mlab
-}
 
-SCRIPT=$0
-COMMAND=$1
-SLICENAME=$2
-
-if [ "$COMMAND" = "reset" ]; then
-    reset
-    exit $?
-fi
-if [ -z "$COMMAND" ] ; then
-    # SET A DEFAULT COMMAND, when started from CRON
-    COMMAND=update
-fi
-
-sanity_checks
-setup_crond
-setup_crond_hourly_update
-SLICENAME=`cat /etc/slicename`
-PACKAGE_MANAGE="http://ks.measurementlab.net/slice-management-package.tar.gz"
-PACKAGE_SLICE="http://ks.measurementlab.net/slice-packages/$SLICENAME.tar.gz"
-
-case "$COMMAND" in
-    start|update)
-        update
-        RETVAL=$?
-        ;;
-    *)
-        echo "Usage: $0 {start|update|reset}"
-        exit 1
-        ;;
-esac
-
-RETVAL=$?
-exit $RETVAL
