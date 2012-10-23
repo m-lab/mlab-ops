@@ -5,16 +5,23 @@ set -e
 
 # SETUP FUNCTIONS
 function assert_dir () {
-    dir=$1
+    local dir=$1
     /usr/bin/test -d $dir || ( 
             echo "ERROR: No $dir!" && exit 1 )
 }
 
 function sanity_checks () {
     # SANITY CHECKS AND ENVIRONMENT SETUP
+
+    # check default permission mask
+    m=$( umask )
+    if [ $m = "0000" ] ; then
+        echo "Please set umask to a sensible default: i.e. umask 0022"
+        exit 1
+    fi
+
     # check for root user
-    if [ $UID -ne "0" ] ;
-    then
+    if [ $UID -ne "0" ] ; then
        echo "You must run this program with root permissions..."
        exit 1
     fi
@@ -34,19 +41,42 @@ function sanity_checks () {
 
 function setup_crond () {
     # ENABLE CROND
+    /sbin/chkconfig rsyslog on
+    l=`pgrep -f rsyslogd | wc -l`
+    if [ $l -eq 0 ] ; then
+        service rsyslog start 
+    fi
     /sbin/chkconfig crond on
-    l=`pgrep crond | wc -l`
+    l=`pgrep -f crond | wc -l`
     if [ $l -eq 0 ] ; then
         # START CROND IF IT IS NOT RUNNING
+        cat <<EOF > /usr/bin/fakemail.sh
+#!/bin/bash
+cat >> /var/log/cron.output
+EOF
+        chmod 755 /usr/bin/fakemail.sh
+        cat <<EOF > /etc/logrotate.d/cronoutput
+/var/log/cron.output {
+    copytruncate
+    compress
+    monthly
+    notifempty
+    rotate 5
+    missingok
+}
+EOF
+        echo "CRONDARGS='-m /usr/bin/fakemail.sh'" > /etc/sysconfig/crond
         /sbin/service crond start
     fi
 }
 
 function setup_crond_hourly_update () {
-    # copy this script to run hourly.
-    if [ -f $SCRIPT ] && [ ! -f /etc/cron.hourly/$( basename $SCRIPT ) ] ; then
+    # link this script to run hourly.
+    CRONSCRIPT=/etc/cron.hourly/$( basename $SCRIPT )
+    if [ -f $SCRIPT ] && \
+       [ ! -e $CRONSCRIPT  ] ; then
         assert_dir "/etc/cron.hourly"
-        /bin/cp $SCRIPT /etc/cron.hourly/
+        ln -s $SCRIPT $CRONSCRIPT
     fi
 }
 
@@ -83,7 +113,7 @@ EOF
        RETRY=0
 
        # download the stage2 initscript
-       wget $STAGE2_URL -O $STAGE2_FN
+       curl -s -o $STAGE2_FN $STAGE2_URL 
        if [ ! -f $STAGE2_FN -o $? -ne 0 ]
        then
           echo "Failed to download $STAGE2_URL"
@@ -92,7 +122,7 @@ EOF
 
        # download the signature
        if [ $RETRY -eq 0 ]; then
-          wget $STAGE2_SIGNATURE_URL -O $STAGE2_SIGNATURE_FN
+          curl -s -o $STAGE2_SIGNATURE_FN $STAGE2_SIGNATURE_URL
           if [ ! -f $STAGE2_SIGNATURE_FN -o $? -ne 0 ]
           then
              echo "Failed to download $STAGE2_SIGNATURE_URL"
@@ -133,38 +163,90 @@ EOF
 
     echo "GOT STAGE2!"
     # NOTE: rename tmp file to proper filename
-    cp $STAGE2_FN /tmp/$STAGE2_FILE 
-}
-function unpack_and_install () {
-    filename=$1
+    mkdir -p /etc/mlab/packages
+    cp $STAGE2_FN /etc/mlab/packages/$STAGE2_FILE 
+    rm -f $PUBKEY_FN
+    rm -f $STAGE2_FN
+    rm -f $STAGE2_SIGNATURE_FN
+    rm -f $STAGE2_SIGNATURE_URL
 }
 
-function start () {
+function package_is_latest () {
+    local url=$1
+    local url_et=$( get_etag_from_url $url )
+    local cached_et=$( get_etag_from_file $url )
+    
+    if test "$url_et" == "$cached_et" ; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function save_etag_from_url () {
+    local url=$1
+    local file=$( basename $url )
+    ETAG=$( get_etag_from_url $url )
+    mkdir -p /etc/mlab/etag/
+    if [ -z "$ETAG" ] ; then
+        return 1
+    else
+        echo $ETAG > /etc/mlab/etag/$file
+        return 0
+    fi
+}
+
+function get_etag_from_url () {
+    local url=$1
+    ETAG=`curl -s -I $url | grep ETag | awk '{print $2}'`
+    echo $ETAG
+}
+
+function get_etag_from_file () {
+    local url=$1
+    local file=$( basename $url )
+    ETAG=`cat /etc/mlab/etag/$file 2> /dev/null`
+    echo $ETAG
+}
+
+function package_setup () {
     FILENAME=$( basename $PACKAGE_MANAGE )
     get_package_and_verify $PACKAGE_MANAGE
     RETVAL=$?
     if [ $RETVAL -eq 0 ] ; then
         # TODO: unpack $FILENAME
         unpack_and_install $FILENAME
+        save_etag_from_url $PACKAGE_MANAGE
     fi
+}
+
+function unpack_and_install () {
+    filename=$1
 }
 
 function update () {
     # TODO: check for most recent version
     #       initiate 'start' if needed.
     echo "update"
+    if package_is_latest $PACKAGE_MANAGE ; then
+        echo "package is latest"
+    else 
+        echo "package is NOT latest"
+        package_setup
+    fi
 }
 
 function reset () {
     rm -f /etc/slicename
     rm -f /etc/cron.hourly/bootstrap.sh
+    rm -rf /etc/mlab
 }
 
 SCRIPT=$0
 COMMAND=$1
 SLICENAME=$2
 
-if [ $COMMAND = "reset" ]; then
+if [ "$COMMAND" = "reset" ]; then
     reset
     exit $?
 fi
@@ -181,11 +263,7 @@ PACKAGE_MANAGE="http://ks.measurementlab.net/slice-management-package.tar.gz"
 PACKAGE_SLICE="http://ks.measurementlab.net/slice-packages/$SLICENAME.tar.gz"
 
 case "$COMMAND" in
-    start)
-        start
-        RETVAL=$?
-        ;;
-    update)
+    start|update)
         update
         RETVAL=$?
         ;;
