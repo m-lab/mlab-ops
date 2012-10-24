@@ -167,7 +167,7 @@ class Site(dict):
 
         super(Site, self).__init__(**kwargs)
 
-    def sync(self, onhost=None):
+    def sync(self, onhost=None, skipinterfaces=False):
         MakeSite(self['login_base'], self['sitename'], self['sitename'])
         for person in self['pi']:
             p_id = MakePerson(*person)
@@ -176,8 +176,7 @@ class Site(dict):
             AddPersonToSite(email,p_id,"pi",self['login_base'])
         for hostname,node in self['nodes'].iteritems():
             if onhost is None or hostname == onhost:
-                print node
-                node.sync()
+                node.sync(skipinterfaces)
 
 class PCU(dict):
     def __str__(self):
@@ -227,6 +226,7 @@ class Node(dict):
 
         kwargs['login_base'] = 'mlab%s' % kwargs['name']
         kwargs['slicelist'] = []
+        kwargs['ipv6_secondary'] = []
         super(Node, self).__init__(**kwargs)
 
     def interface(self):
@@ -252,21 +252,23 @@ class Node(dict):
         if slicename not in self['slicelist']:
             self['slicelist'].append(slicename)
 
-    def sync(self):
+    def sync(self, skipinterfaces=False):
         node_id = MakeNode(self['login_base'], self.hostname())
         MakePCU(self['login_base'], node_id, self['pcu'].fields())
         PutNodeInNodegroup(self.hostname(), node_id, self['nodegroup'])
         interface = self.interface()
-        MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
+        if not skipinterfaces:
+            MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
 
         if not self['exclude_ipv6']:
             MakeInterfaceTags(node_id, interface, self.v6interface_tags())
 
-        for ip in self.iplist():
-            interface['ip'] = ip
-            interface['is_primary'] = False
-            MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
-
+        if not skipinterfaces:
+            for ip in self.iplist():
+                interface['ip'] = ip
+                interface['is_primary'] = False
+                MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
+        return 
 
 class Attr(dict):
     #def __str__(self):
@@ -303,7 +305,12 @@ class Slice(dict):
             # None means ipv6 is OFF by default
             kwargs['ipv6'] = None
         else:
-            kwargs['ipv6'] = [ h+'.measurement-lab.org' for h in kwargs['ipv6'] ]
+            if type(kwargs['ipv6']) == str:
+                kwargs['ipv6'] = "all"
+            elif type(kwargs['ipv6']) == type([]):
+                kwargs['ipv6'] = [ h+'.measurement-lab.org' for h in kwargs['ipv6'] ]
+            else:
+                raise Exception("Unrecognized type for ipv6 parameter: %s" % type(kwargs['ipv6']))
 
         # *ALL* K32 kernels will need the isolate_loopback enabled.
         LOOPBACK=Attr('MeasurementLabK32', isolate_loopback='1')
@@ -326,10 +333,9 @@ class Slice(dict):
         net_tuple = (h, ipv4, "")
         # the node has ipv6, and the hostname is in the slice's ipv6 list,
         # or, ipv6 == "all"
-              #( (type(self['ipv6']) == type([]) and h[:11] in self['ipv6']) or 
         if ( not node['exclude_ipv6'] and 
               ( (type(self['ipv6']) == type([]) and h     in self['ipv6']) or 
-                (type(self['ipv6']) == str      and "all" in self['ipv6']) )
+                (type(self['ipv6']) == type("") and "all" == self['ipv6']) )
            ):
             net_tuple = (h, ipv4, ipv6)
         self['network_list'].append( net_tuple )
