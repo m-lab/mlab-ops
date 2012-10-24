@@ -69,7 +69,8 @@ def main():
     parser = OptionParser(usage=usage())
 
     parser.set_defaults(syncsite=None, syncslice=None,
-                        ondest=None, skipwhitelist=False, skipsliceips=False,
+                        ondest=None, skipwhitelist=False, 
+                        skipsliceips=False, skipinterfaces=False,
                         url=session.API_URL, debug=False, verbose=False, )
 
     parser.add_option("", "--dryrun", dest="debug", action="store_true",
@@ -94,7 +95,11 @@ def main():
     parser.add_option("", "--skipsliceips", dest="skipsliceips", 
                 action="store_true",
                 help="dont try to assign ips to slice. (saves time)")
-
+    parser.add_option("", "--skipinterfaces", dest="skipinterfaces", 
+                action="store_true",
+                help=("dont try to create new Interfaces or update existing "+
+                      "Interfaces. This permits IPv6 maniuplation without "+
+                      "changing legacy IPv4 configuration in DB.") )
     (options, args) = parser.parse_args()
     if len(sys.argv) == 1:
         usage()
@@ -123,7 +128,7 @@ def main():
                 if (options.syncsite == "all" or 
                     options.syncsite == site['name']):
                     print "Syncing: site", site['name']
-                    site.sync(options.ondest)
+                    site.sync(options.ondest, options.skipinterfaces)
 
         if options.syncslice:
             print options.syncslice
