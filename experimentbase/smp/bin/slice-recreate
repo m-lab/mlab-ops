@@ -1,0 +1,6 @@
+#!/bin/bash
+
+if [ -f /vsys/slice_recreate.out ] ; then
+    cat /vsys/slice_recreate.out &
+    echo "1" > /vsys/slice_recreate.in
+fi
