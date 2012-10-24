@@ -22,7 +22,8 @@ slice_list = [
                     Attr('MeasurementLabK32', disk_max='10000000'),
                     Attr('MeasurementLabK32', vsys='web100_proc_write'),
                     Attr('MeasurementLabK32', pldistro='mlab'), ],
-                    ipv6=['mlab4.nuq01']),
+                    ipv6="all"),
+                    #ipv6=['mlab4.nuq01']),
 
     Slice(name='mpisws_broadband',       index=3, attrs=[
                     Attr(None,                initscript='mpisws_broadband_initscript'),
