@@ -151,7 +151,7 @@ def visit_and_delete(args, dirname, filenames):
                             total_size/1024, "/".join(full_path.split("/")[3:]) )
                 if not DEBUG and len(os.listdir(full_path))==0:
                     print >>fout, "safely removing dir: %s" % full_path
-                    os.rmdir(fullpath)
+                    os.rmdir(full_path)
 
         except Exception, e:
             print >>fout, "error regarding: %s" % e
