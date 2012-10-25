@@ -304,6 +304,8 @@ def MakeSliceAttribute(slicename, attr):
                     print "ADDING   : %s -> (%s->%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
                     if nd is None and ng is None: 
                         s.api.AddSliceTag(slicename, k, attr[k])
+                    elif ng is None:
+                        s.api.AddSliceTag(slicename, k, attr[k], nd)
                     else:
                         s.api.AddSliceTag(slicename, k, attr[k], nd, ng)
 
