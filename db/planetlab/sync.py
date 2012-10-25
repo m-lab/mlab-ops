@@ -351,18 +351,19 @@ def WhitelistSliceOnNode(slicename, hostname):
 
         for sslice in slices:
 
-            if sslice['slice_id'] not in slice_ids_on_node:
-                print "Adding %s to hosts: %s" % (sslice['name'], node['hostname'])
-                s.api.AddSliceToNodes(sslice['slice_id'],[node['hostname']])
-            else:
-                print "Confirmed: %s is assigned to %s" % (sslice['name'], node['hostname'])
-            
             if sslice['slice_id'] not in slice_ids_on_node_whitelist:
                 # then this slice is not on this node's whitelist
                 print "Adding %s to whitelist on host: %s" % (sslice['name'], node['hostname'])
                 s.api.AddSliceToNodesWhitelist(sslice['slice_id'],[node['hostname']])
             else:
                 print "Confirmed: %s is whitelisted on %s" % (sslice['name'], node['hostname'])
+
+            if sslice['slice_id'] not in slice_ids_on_node:
+                print "Adding %s to hosts: %s" % (sslice['name'], node['hostname'])
+                s.api.AddSliceToNodes(sslice['slice_id'],[node['hostname']])
+            else:
+                print "Confirmed: %s is assigned to %s" % (sslice['name'], node['hostname'])
+            
 
     # NOTE: this approach does not delete stray slices from whitelist
     return
