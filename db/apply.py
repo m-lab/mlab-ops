@@ -121,7 +121,8 @@ def main():
     if ( options.syncsite is not None or 
          options.syncslice is not None ):
 
-        if options.syncsite is not None:
+        if options.syncsite is not None and options.syncslice is None:
+            print "sync site"
             for site in site_list: 
                 # sync everything when syncsite is None, 
                 # or only when it matches
@@ -130,7 +131,7 @@ def main():
                     print "Syncing: site", site['name']
                     site.sync(options.ondest, options.skipinterfaces)
 
-        if options.syncslice:
+        if options.syncslice and options.syncsite is None:
             print options.syncslice
             for sslice in slice_list: 
                 if (options.syncslice == "all" or 
@@ -139,6 +140,16 @@ def main():
                     sslice.sync(options.ondest, 
                                options.skipwhitelist, 
                                options.skipsliceips)
+
+        if options.syncslice and options.syncsite:
+            print "sync slices & site"
+            if options.syncslice == "all":
+                site = filter(lambda x: x['name'] == options.syncsite, site_list)
+                #site.sync(options.ondest, options.skipinterfaces)
+                for sslice in slice_list: 
+                    sslice.sync(options.ondest, 
+                                options.skipwhitelist, 
+                                options.skipsliceips)
 
 if __name__ == "__main__":
     try:

@@ -338,15 +338,20 @@ class Slice(dict):
                 (type(self['ipv6']) == type("") and "all" == self['ipv6']) )
            ):
             net_tuple = (h, ipv4, ipv6)
-        self['network_list'].append( net_tuple )
+
+        # do not add the net_tuple if ipv4 is none
+        if net_tuple[1] is not None:
+            self['network_list'].append( net_tuple )
         
-    def sync(self, hostname=None, skipwhitelist=False, skipsliceips=False):
+    def sync(self, hostname_or_site=None, skipwhitelist=False, skipsliceips=False):
         # NOTE: SLICES ARE NOT CREATED HERE.
         #       USERS  ARE NOT ADDED TO SLICES HERE.
         for attr in self['attrs']:
             MakeSliceAttribute(self['name'], attr)
         for h,v4,v6 in self['network_list']:
-            if hostname is None or h == hostname:
+            if ( hostname_or_site is None or 
+                 hostname_or_site == h    or 
+                 hostname_or_site in h ):
                 if not skipsliceips:
                     val = v4 if v6=="" else v4+","+v6
                     attr = Attr(h, ip_addresses=val)
