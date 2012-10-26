@@ -97,8 +97,7 @@ sanity_checks
 setup_crond
 setup_crond_hourly_update
 SLICENAME=`cat /etc/slicename`
-PACKAGE_MANAGE="http://ks.measurementlab.net/slice-management-package.tar.gz"
-PACKAGE_SLICE="http://ks.measurementlab.net/slice-packages/$SLICENAME.tar.gz"
+PACKAGE_MANAGE=$( get_url_for_file slice-management-package.tar.gz )
 
 case "$COMMAND" in
     start|update)
