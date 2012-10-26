@@ -14,7 +14,14 @@ function install_file () {
     return 1
 }
 
-source etc/slice-functions
+if [ ! -f /etc/mlab/bootstrap-functions ] ; then
+    echo "ERROR: missing bootstrap-functions"
+    exit 1
+fi
+
+source /etc/mlab/bootstrap-functions
+source $PWD/etc/slice-functions
+
 slicename=$( get_slice_name )
 if has_private_ip ; then
     port=7999
@@ -32,3 +39,16 @@ install_file bin/slice-restart   /usr/bin/
 install_file init.d/slicectrl-functions    /etc/init.d/
 install_file init.d/slicectrl /etc/init.d
 
+
+function update () {
+    echo "update"
+    if package_is_latest $PACKAGE_MANAGE ; then
+        echo "package is latest"
+    else 
+        echo "package is NOT latest"
+        package_setup $PACKAGE_MANAGE
+    fi
+}
+SLICENAME=`cat /etc/slicename`
+PACKAGE_SLICE="http://ks.measurementlab.net/slice-packages/$SLICENAME.tar.gz"
+update()
