@@ -13,6 +13,17 @@ def usage():
         and applies them to the PLC database adding or updating objects, 
         tags, and other values when appropriate.
 
+    TODO:
+        Implement common operations:
+
+        ./apply.yp --syncsite xyz --getbootimages 
+                This would setup the basic networking, and download boot images.
+                Subsequent calls should assume these are done already.
+
+        ./apply.py --syncsite xyz --syncslices all
+                Basic networking is complete, double check ipv6, apply only to
+                nodes at site xyz.
+
     Examples:
         ./apply.py --dryrun ....
                 Only perform Get* api calls.  Absolutely no changes are made
