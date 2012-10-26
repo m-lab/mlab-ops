@@ -1,0 +1,21 @@
+#!/usr/bin/python
+
+# TODO: issue vserver restart
+# NOTE: may need to fork this so that killing the slice that requested this
+# process doesn't end up killing this process also.
+# vserver --silent <slicename> delete
+# service nm restart
+
+import sys
+import os
+
+print "%s" % sys.argv
+if len(sys.argv) == 2:
+    slicename=sys.argv[1]
+    os.system("%s %s RUN &" % (sys.argv[0], sys.argv[1]))
+elif len(sys.argv) == 3:
+    slicename=sys.argv[1]
+    os.system("/usr/sbin/vserver --silent %s delete" % slicename)
+    # NOTE: not 'restart'
+    os.system("/sbin/service nm stop" % slicename)
+    os.system("/sbin/service nm start" % slicename)

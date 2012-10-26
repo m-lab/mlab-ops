@@ -1,0 +1,15 @@
+#!/usr/bin/python -u
+
+# TODO: issue vserver restart
+# NOTE: may need to fork to avoid this process being killed.
+# vserver <slicename> restart
+import sys
+import os
+
+print "%s" % sys.argv
+if len(sys.argv) == 2:
+    slicename=sys.argv[1]
+    os.system("%s %s RUN &" % (sys.argv[0], sys.argv[1]))
+elif len(sys.argv) == 3:
+    slicename=sys.argv[1]
+    os.system("/usr/sbin/vserver %s restart" % slicename)
