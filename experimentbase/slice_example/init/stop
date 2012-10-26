@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "Stopping service"
+# pkill -TERM -f myservice-extra-process
+exit $?

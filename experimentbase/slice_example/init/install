@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# NOTE: 'install' should be idempotent.  
+# i.e. running multiple times should be safe
+
+if [ ! -x /usr/sbin/httpd ] ; then
+    yum install -y httpd
+fi
+
+if [ ! -f /etc/httpd/conf/httpd.conf ] ; then
+    echo "Error: cannot continue"
+    exit 1
+fi
+
+PATTERN="^Listen 80$"
+if grep -q "$PATTERN" /etc/httpd/conf/httpd.conf ; then
+    sed -i -e 's/'$PATTERN'/Listen 8088/g' /etc/httpd/conf/httpd.conf
+fi
+

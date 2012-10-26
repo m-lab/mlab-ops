@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "Starting service"
+# $PWD/bin/myservice < /dev/null &> /dev/null &
+exit $?

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+
+
+STATE=3
+MESSAGE="Status is currently unknown"
+PREFIX="Unknown: "
+
+process_count=`ps ax | grep -vE "crond|rsyslogd|login|rsync" | wc -l`
+if [ $process_count -eq 0 ] ; then
+    STATE=2
+    MESSAGE="No service processes running"
+    PREFIX="Critical: "
+fi
+
+echo $PREFIX $MESSAGE
+exit $STATE

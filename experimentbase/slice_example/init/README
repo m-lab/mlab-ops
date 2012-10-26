@@ -1,0 +1,46 @@
+
+The SliceManagementPackage needs only a entry points into your experiment.
+
+The following scripts will be run AS THE SLICE USER, not as root.  If the
+actions of 'install', for instance, require elevated privileges, then they must
+first be taken with 'sudo' or some other mechanism.
+
+The CWD will be the root of the package directory.
+    i.e. /home/mlab_slice/current/*
+
+Every version deployed to your slice will be saved, and the current version will
+always be under current/*, where '*' is the root of content of your slice
+archive.
+
+Example scripts:
+
+    install - optional.  
+
+              If your experiment requires additional one-time configuration such
+              as installation of dependent packages, setup of config files in
+              httpd or other, this is the place to do it.  This script should be
+              idempotent; it should be possible to run it repeatedly without ill
+              effect.  'install' will be run every time a new version of your
+              slice package is installed.  But, if package dependencies have
+              already been installed, then it is not necessary to repeat them,
+              or new dependencies may have been added in the new version.
+
+    start - required. 
+
+            This script should start any processes needed by your service.
+              
+    stop -  required.
+            
+            This script should gracefully stop any processes that were started
+            by your service.  After this script returns, a more, let's say,
+            assertive script will forcibly stop any processes remaining that are
+            not part of the slice management packages.
+
+    status - optional, encouraged
+
+            This script should return a status for the running service suitable
+            for input to Nagios.  By default, service status is just the number
+            of processes running.  You are encouraged to provide a more
+            meaningful indication of service health and liveness.  This will
+            assist you when observing the status of your service across M-Lab
+            and it will assist M-Lab operators who may see issues first.
