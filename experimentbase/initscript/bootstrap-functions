@@ -208,4 +208,8 @@ function unpack_and_install () {
     fi
 }
 
+PACKAGE_SERVER=ks.measurmentlab.net
+function get_url_for_file () {
+   echo "http://$PACKAGE_SERVER/$1"
+}
 
