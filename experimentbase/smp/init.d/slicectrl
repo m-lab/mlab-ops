@@ -36,23 +36,31 @@ function start () {
     start_slice
 }
 
+function status () {
+    echo "status "
+    status_slice
+}
+
 case $COMMAND in
-    update)
-    ;;
-    configure)
-    ;;
-    verify)
-    ;;
     restart)
         restart
     ;;
     start)
-        # start rsyncd
         start
     ;;
     stop)
-        # stop rsyncd
         stop
+    ;;
+    status)
+        status
+    ;;
+    install)
+        
+    ;;
+    update)
+    ;;
+
+    verify)
     ;;
     register)
         # ping ks.* or mlc.*
