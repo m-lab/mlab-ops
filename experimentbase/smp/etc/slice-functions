@@ -24,13 +24,6 @@ function has_private_ip() {
     fi
 }
 
-function get_slice_name() {
-	## NOTE: this will fail when there are other users in group 'slices'
-	slice_gid=$( grep slices: /etc/group | sed -e 's/slices:x//g' )
-	node_id=$( grep $slice_gid /etc/passwd | awk -F: '{print $1}' )
-	echo $node_id
-}
-
 function get_site_name() {
 	SITE=$( hostname | tr 'a-z' 'A-Z' | awk -F. '{print $2}' )
 	echo $SITE
