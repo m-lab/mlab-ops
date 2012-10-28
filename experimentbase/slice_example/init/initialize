@@ -2,9 +2,15 @@
 
 # NOTE: 'install' should be idempotent.  
 # i.e. running multiple times should be safe
+set -x
+set -e
+
+echo "SLICE EXAMPLE INSTALL!!"
+echo $PWD
 
 if [ ! -x /usr/sbin/httpd ] ; then
-    yum install -y httpd
+    sudo yum install -y httpd
+    sudo yum install -y vim
 fi
 
 if [ ! -f /etc/httpd/conf/httpd.conf ] ; then
@@ -14,6 +20,6 @@ fi
 
 PATTERN="^Listen 80$"
 if grep -q "$PATTERN" /etc/httpd/conf/httpd.conf ; then
-    sed -i -e 's/'$PATTERN'/Listen 8088/g' /etc/httpd/conf/httpd.conf
+    sudo sed -i -e "s/$PATTERN/Listen 8088/g" /etc/httpd/conf/httpd.conf
 fi
 
