@@ -10,11 +10,19 @@ STATE=3
 MESSAGE="Status is currently unknown"
 PREFIX="Unknown: "
 
-process_count=`ps ax | grep -vE "crond|rsyslogd|login|rsync" | wc -l`
+process_count=`ps ax | grep -vE "crond|rsyslogd|login|rsync|ps|wc|PID" | wc -l`
 if [ $process_count -eq 0 ] ; then
     STATE=2
     MESSAGE="No service processes running"
     PREFIX="Critical: "
+elif [ $process_count -le 8 ] ; then
+    STATE=1
+    MESSAGE="Too few server processes running"
+    PREFIX="Warning: "
+elif [ $process_count -gt 8 ] ; then
+    STATE=0
+    MESSAGE="Up and running correctly"
+    PREFIX="Ok: "
 fi
 
 echo $PREFIX $MESSAGE
