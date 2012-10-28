@@ -2,5 +2,5 @@
 
 echo "Stopping service"
 # pkill -TERM -f myservice-extra-process
-sudo service httpd stop
+sudo /sbin/service httpd stop
 exit $?

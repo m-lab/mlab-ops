@@ -2,5 +2,5 @@
 
 echo "Starting service"
 # $PWD/bin/myservice < /dev/null &> /dev/null &
-sudo service httpd start
+sudo /sbin/service httpd start
 exit $?
