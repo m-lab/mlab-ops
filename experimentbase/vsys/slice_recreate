@@ -8,6 +8,7 @@
 
 import sys
 import os
+import time
 
 print "%s" % sys.argv
 if len(sys.argv) == 2:
@@ -15,7 +16,11 @@ if len(sys.argv) == 2:
     os.system("%s %s RUN &" % (sys.argv[0], sys.argv[1]))
 elif len(sys.argv) == 3:
     slicename=sys.argv[1]
-    os.system("/usr/sbin/vserver --silent %s delete" % slicename)
+    os.system("/usr/sbin/vuserdel %s" % slicename)
     # NOTE: not 'restart'
+    os.system("/sbin/service nm stop" % slicename)
+    os.system("/sbin/service nm start" % slicename)
+    time.sleep(120)
+    # NOTE: :-/  some horrific configuration buf requires multiple restarts
     os.system("/sbin/service nm stop" % slicename)
     os.system("/sbin/service nm start" % slicename)
