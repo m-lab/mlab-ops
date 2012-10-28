@@ -1,8 +1,11 @@
 #!/bin/bash
+set -x
+set -e
 
 # SETUP FUNCTIONS
-function sanity_checks () {
+function assert_sanity_checks () {
     # SANITY CHECKS AND ENVIRONMENT SETUP
+    local given_slicename=$1
 
     # check default permission mask
     m=$( umask )
@@ -18,15 +21,10 @@ function sanity_checks () {
     fi
 
     # check that slice name is given or saved.
-    if [ -z "$SLICENAME" ] && [ ! -f /etc/slicename ] ; then
-        echo "Please pass the slicename as the second argument"
-        exit 1
-    fi
-
-    # if it's given then save it.
-    if [ -n "$SLICENAME" ] ; then
-        # SAVE SLICENAME
-        echo $SLICENAME > /etc/slicename
+    if [ -n "$given_slicename" ] && \
+       [ "$given_slicename" != $( get_slice_name) ] ; then
+       echo "Given slice name is different from discovered slice name!"
+       exit 1
     fi
 
     if ! enough_disk_space ; then
@@ -37,10 +35,10 @@ function sanity_checks () {
 
 function get_package_and_verify () {
     # filename for the publickey we will use to verify the stage2 initscript
-    PUBKEY_FN=`mktemp /tmp/publickey.XXXXXXXXXX`
+    PUBKEY_FN=$( mktemp /tmp/publickey.XXXXXXXXXX )
 
     # filename for the extract stage2 initscript
-    STAGE2_FN=`mktemp /tmp/stage2-initscript.XXXXXXXXXX`
+    STAGE2_FN=$( mktemp /tmp/stage2-initscript.XXXXXXXXXX )
 
     # URL for the stage2 initscript
     STAGE2_URL="$1"
@@ -51,14 +49,14 @@ function get_package_and_verify () {
     STAGE2_SIGNATURE_URL=$STAGE2_URL.sig
 
     # create the public key file
-    cat <<EOF > $PUBKEY_FN
+    cat <<ZEOF > $PUBKEY_FN
 -----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDhB8rNF0EH9DfjMw2mDGTYur/N
 MmaQaiXICDaxlL1MppY9B6GFQVDbthrqM9HjBUUyDUnQ1jrOjE0II7QKeSc5Gqys
 8e8S92stMzdSvtcogfhJcYElq9pCXLbzxI7xzRRoK1zEuKPz3Op5wDjUj1x8/x02
 LfnWuuFYf4U5JCRoRwIDAQAB
 -----END PUBLIC KEY-----
-EOF
+ZEOF
 
     DELAY=1
     RETRY=1
@@ -88,7 +86,7 @@ EOF
        # make sure the signature is correct
        if [ $RETRY -eq 0 ]; then
           # verify the signature
-          RESULT=`openssl dgst -sha256 -signature $STAGE2_SIGNATURE_FN -verify $PUBKEY_FN $STAGE2_FN`
+          RESULT=$( openssl dgst -sha256 -signature $STAGE2_SIGNATURE_FN -verify $PUBKEY_FN $STAGE2_FN )
           echo "Signature Verification: $RESULT"
           if [ "$RESULT" != "Verified OK" ]; then
              echo "OpenSSL failed to verify $STAGE2_SIGNATURE_FN"
@@ -116,10 +114,9 @@ EOF
        fi
     done
 
-    echo "GOT STAGE2!"
     # NOTE: rename tmp file to proper filename
-    mkdir -p $PREFIX/packages
-    cp $STAGE2_FN $PREFIX/packages/$STAGE2_FILE 
+    mkdir -p $PREFIX/downloads
+    cp $STAGE2_FN $PREFIX/downloads/$STAGE2_FILE 
     rm -f $PUBKEY_FN
     rm -f $STAGE2_FN
     rm -f $STAGE2_SIGNATURE_FN
@@ -141,15 +138,23 @@ function save_etag_from_url () {
 
 function get_etag_from_url () {
     local url=$1
-    ETAG=`curl -s -I $url | grep ETag | awk '{print $2}'`
-    echo $ETAG
+    ETAG=$( curl -s -I $url | grep ETag | awk '{print $2}' )
+    if [ -z "$ETAG" ] ; then
+        echo "missing-etag-from-url"
+    else
+        echo $ETAG
+    fi
 }
 
 function get_etag_from_file () {
     local url=$1
     local file=$( basename $url )
-    ETAG=`cat $PREFIX/etag/$file 2> /dev/null`
-    echo $ETAG
+    ETAG=$( cat $PREFIX/etag/$file 2> /dev/null )
+    if [ -z "$ETAG" ] ; then
+        echo "missing-etag-in-file"
+    else
+        echo $ETAG
+    fi
 }
 
 function package_setup () {
@@ -158,7 +163,7 @@ function package_setup () {
     get_package_and_verify $url
     RETVAL=$?
     if [ $RETVAL -eq 0 ] ; then
-        if unpack_and_install $filename ; then
+        if unpack_and_initialize $filename ; then
             save_etag_from_url $url
         fi
     fi
@@ -177,7 +182,7 @@ function package_is_latest () {
 }
 
 function enough_disk_space () {
-    blocks_available=`df | grep dev | awk '{print $4}'`
+    blocks_available=$( df | grep dev | awk '{print $4}' )
     if [ $blocks_available -gt 10240 ] ; then
         # at least 10MB are available.
         return 0
@@ -185,31 +190,177 @@ function enough_disk_space () {
     return 1
 }
 
-function unpack_and_install () {
+function unpack_and_initialize () {
     filename=$1
-    mkdir -p $PREFIX/install
-    cd $PREFIX/install
+    cd $PREFIX
     if [ -d current ] ; then
-        suffix=`date +%Y-%m-%d-%H:%M`
+        suffix=$( date +%Y-%m-%d-%H:%M )
         if [ -d previous-$suffix ] ; then
             suffix=${suffix}-0
         fi
         mv current previous-$suffix
     fi
     mkdir -p current
-    tar -C current -zxf $PREFIX/packages/$filename
-    if [ -f current/install.sh ] ; then
-        cd current;
-        ./install.sh
+    # NOTE: -po removes the owners in the archive.
+    tar -C current -po -zxf $PREFIX/downloads/$filename
+    if [ -f current/init/initialize ] ; then
+        cd current
+        ./init/initialize
         return $?
     else
-        echo "NO SUCH FILE: $PREFIX/install/current/install.sh" 
+        echo "NO SUCH FILE: $PREFIX/current/init/initialize" 
         return 1
     fi
 }
 
-PACKAGE_SERVER=ks.measurmentlab.net
-function get_url_for_file () {
-   echo "http://$PACKAGE_SERVER/$1"
+function update () {
+    local package=$1
+    echo "update $package"
+    if package_is_latest $package ; then
+        echo "package is latest: $package"
+    else 
+        echo "package is NOT latest: $package"
+        package_setup $package
+    fi
 }
 
+function install_file () {
+    src=$1
+    dst=$2
+    if [ -f $src ] ; then
+        cp -f $src $dst
+        return $?
+    fi
+    return 1
+}
+
+function get_slice_name() {
+	## NOTE: this will fail when there are other users in group 'slices'
+	slice_gid=$( grep slices: /etc/group | sed -e 's/slices:x//g' )
+	node_id=$( grep $slice_gid /etc/passwd | awk -F: '{print $1}' )
+	echo $node_id
+}
+
+function get_url_for_file () {
+    PACKAGE_SERVER=ks.measurementlab.net
+    echo "http://$PACKAGE_SERVER/$1"
+}
+
+
+function assert_dir () {
+    local dir=$1
+    /usr/bin/test -d $dir || ( 
+            echo "ERROR: No $dir!" && exit 1 )
+}
+
+function setup_crond_hourly_update () {
+    # link this script to run hourly.
+    CRONSCRIPT=/etc/cron.hourly/$( basename $SCRIPT )
+    if [ -f $SCRIPT ] && \
+       [ ! -e $CRONSCRIPT  ] ; then
+        assert_dir "/etc/cron.hourly"
+        ln -s $SCRIPT $CRONSCRIPT
+    fi
+}
+
+function setup_crond () {
+    # ENABLE CROND
+    /sbin/chkconfig rsyslog on
+    l=$( pgrep -f rsyslogd | wc -l )
+    if [ $l -eq 0 ] ; then
+        service rsyslog start 
+    fi
+    /sbin/chkconfig crond on
+    l=$( pgrep -f crond | wc -l )
+    if [ $l -eq 0 ] ; then
+        # START CROND IF IT IS NOT RUNNING
+        cat <<EOF > /usr/bin/fakemail.sh
+#!/bin/bash
+cat >> /var/log/cron.output
+EOF
+        chmod 755 /usr/bin/fakemail.sh
+        cat <<EOF > /etc/logrotate.d/cronoutput
+/var/log/cron.output {
+    copytruncate
+    compress
+    monthly
+    notifempty
+    rotate 5
+    missingok
+}
+EOF
+        echo "CRONDARGS='-m /usr/bin/fakemail.sh'" > /etc/sysconfig/crond
+        /sbin/service crond start
+    fi
+}
+
+function reset () {
+    rm -f /etc/slicename
+    rm -f /etc/cron.hourly/update-manager.sh
+    rm -rf $PREFIX
+    rm -f /etc/rsyncd.conf
+    rm -f /etc/slice-functions
+    rm -f /etc/init.d/slicectrl.sh
+    rm -f /etc/init.d/slicectrl-functions
+    rm -rf /home/mlab_ops/current
+    rm -rf /home/mlab_ops/downloads
+    rm -rf /home/mlab_ops/etag
+    rm -rf /home/mlab_ops/previous*
+}
+
+function initialize_for_initscript () {
+    setup_crond
+
+    ## re-run this script hourly
+    assert_dir "/etc/cron.hourly"
+    CRONSCRIPT=/etc/cron.hourly/$( basename $SCRIPT )
+    [ ! -e $CRONSCRIPT  ] && ln -s $SCRIPT $CRONSCRIPT
+
+    ## copy this script to a known location for other scripts to import
+    [ ! -d /etc/mlab/ ] && mkdir -p /etc/mlab
+    install_file $SCRIPT /etc/mlab/bootstrap-functions
+}
+
+if [ "$BASH_SOURCE" = "$0" ] ; then
+    # then this script is being executed not sourced.
+
+    PREFIX=/etc/mlab
+    SCRIPT=$0
+    COMMAND=$1
+    SLICENAME=$2
+    PACKAGE_MANAGE=$( get_url_for_file slice-management-package.tar.gz )
+
+    if [ -z "$COMMAND" ] ; then
+        # cron will pass no arguments.  The default is 'update'
+        COMMAND=update
+    fi
+
+    if [ "$COMMAND" = "reset" ]; then
+
+        reset
+        exit $?
+
+    elif [ "$COMMAND" = "start" ] ; then
+
+        assert_sanity_checks $SLICENAME
+        initialize_for_initscript
+        update $PACKAGE_MANAGE
+        RETVAL=$?
+        exit $RETVAL
+
+    elif [ "$COMMAND" = "update" ] ; then
+
+        update $PACKAGE_MANAGE
+        RETVAL=$?
+        exit $RETVAL
+
+    else
+
+        echo "Unknown command: $COMMAND"
+        exit 1
+
+    fi
+
+    echo "This should never be reached"
+    exit 1
+fi
