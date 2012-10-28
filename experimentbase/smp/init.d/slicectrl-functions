@@ -14,7 +14,7 @@ function find_and_exec () {
     local file=$1
     slicename=$( get_slice_name )
     if [ -f /home/$slicename/current/init/$file ] ; then
-        /home/$slicename/current/init/$file
+        su - $slicename -c /home/$slicename/current/init/$file
     fi
 }
 
