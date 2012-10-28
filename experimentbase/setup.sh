@@ -7,16 +7,20 @@ if [ -z "$1" ] ; then
     exit 1
 fi
 mkdir -p build
-pushd initscript
-    sed -e '/ALLFUNCTIONS/ { 
-      r bootstrap-functions
-      d 
-    }' init.sh > ../build/bootstrap.sh
-popd
+#pushd initscript
+#    sed -e '/ALLFUNCTIONS/ { 
+#      r bootstrap-functions
+#      d 
+#    }' init.sh > ../build/update-manager.sh
+#    chmod 755 ../build/update-manager.sh
+#popd
+cp initscript/bootstrap-functions build/update-manager.sh
 tar -C smp -zcvf build/slice-management-package.tar.gz .
 tar -C slice_example -zcvf build/$1.tar.gz .
 
 if [ -n "$2" ] && [ "$2" = "install" ] ; then
+    scp build/update-manager.sh mlab4.nuq01:/vservers/mlab_ops/tmp/
     scp -r build/*.tar.gz ks:mlabops/keys/
+    ssh ks "cd mlabops/keys; ./setup.sh"
 fi
 
