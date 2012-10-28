@@ -1,6 +1,7 @@
 #!/bin/bash
 
 source /etc/slice-functions
+source /etc/mlab/bootstrap-functions
 
 function start_rsync () {
     rsync --daemon --config=/etc/rsyncd.conf --verbose
@@ -9,14 +10,25 @@ function stop_rsync () {
     pkill -f rsync
 }
 
-function start_slice () {
-    echo "TODO: start slice.."    
+function find_and_exec () {
+    local file=$1
     slicename=$( get_slice_name )
-    if [ -f /home/$slicename/current/bin/start ] ; then
-        /home/$slicename/current/bin/start 
+    if [ -f /home/$slicename/current/init/$file ] ; then
+        /home/$slicename/current/init/$file
     fi
 }
 
+function start_slice () {
+    echo "starting slice.."
+    find_and_exec start
+}
+
 function stop_slice () {
-    echo "TODO: stop slice.."    
+    echo "stopping slice.."
+    find_and_exec stop
+}
+
+function status_slice () {
+    echo "slice status.."
+    find_and_exec status
 }
