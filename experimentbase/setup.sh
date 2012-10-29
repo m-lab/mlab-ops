@@ -16,7 +16,7 @@ mkdir -p build
 #popd
 cp initscript/bootstrap-functions build/update-manager.sh
 tar -C smp -zcvf build/slice-management-package.tar.gz .
-tar -C slice_example -zcvf build/$1.tar.gz .
+tar -C slice_example -zcvf build/$1.tar.gz bin init 
 
 if [ -n "$2" ] && [ "$2" = "install" ] ; then
     scp build/update-manager.sh mlab4.nuq01:/vservers/mlab_ops/tmp/
