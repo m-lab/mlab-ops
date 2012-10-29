@@ -194,7 +194,9 @@ function unpack_and_initialize () {
     filename=$1
     cd $PREFIX
     if [ -d current ] ; then
-        suffix=$( date +%Y-%m-%d-%H:%M )
+        #suffix=$( date +%Y-%m-%d-%H:%M )
+        suffix=$( stat --format=%y current | \
+                  awk -F. '{print $1}' | tr ' ' '-' )
         if [ -d previous-$suffix ] ; then
             suffix=${suffix}-0
         fi
