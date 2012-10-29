@@ -8,18 +8,22 @@ set -e
 echo "SLICE EXAMPLE INSTALL!!"
 echo $PWD
 
-if [ ! -x /usr/sbin/httpd ] ; then
-    sudo yum install -y httpd
+if [ ! -x /usr/sbin/lighttpd ] ; then
+    sudo yum install -y lighttpd
     sudo yum install -y vim
 fi
 
-if [ ! -f /etc/httpd/conf/httpd.conf ] ; then
+if [ ! -f /etc/lighttpd/lighttpd.conf ] || \
+   [ ! -f /usr/sbin/lighttpd ] ; then
     echo "Error: cannot continue"
     exit 1
 fi
 
-PATTERN="^Listen 80$"
-if grep -q "$PATTERN" /etc/httpd/conf/httpd.conf ; then
-    sudo sed -i -e "s/$PATTERN/Listen 8088/g" /etc/httpd/conf/httpd.conf
+sudo mkdir  -p /var/log/pathchirp
+sudo chmod 777 /var/log/pathchirp
+
+PATTERN="^#server.port.*= 81$"
+if sudo grep -q "$PATTERN" /etc/lighttpd/lighttpd.conf ; then
+    sudo sed -i -e "s/$PATTERN/server.port = 8088/g" /etc/lighttpd/lighttpd.conf
 fi
 
