@@ -26,8 +26,7 @@ function setup_rsync () {
     mkdir -p /var/spool/$slicename
 }
 
-slicename=$( get_slice_name )
-setup_rsync $slicename
+setup_rsync $SLICENAME
 
 install_file etc/slice-functions /etc/
 install_file bin/slice-recreate  /usr/bin/
@@ -49,13 +48,12 @@ if [ ! -f /etc/mlab/bootstrap-functions ] ; then
 fi
 source /etc/mlab/bootstrap-functions
 source /etc/slice-functions
-slicename=$( get_slice_name )
 
 if [ $UID -eq "0" ] ; then
-    su - $slicename -c "$0"
+    su - $SLICENAME -c "$0"
 else
-    PACKAGE_SLICE=$( get_url_for_file slice-packages/$slicename.tar.gz )
-    PREFIX=/home/$slicename
+    PACKAGE_SLICE=$( get_url_for_file slice-packages/$SLICENAME.tar.gz )
+    PREFIX=/home/$SLICENAME
     update $PACKAGE_SLICE
 fi
 EOF
