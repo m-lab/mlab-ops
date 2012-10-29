@@ -29,4 +29,9 @@ function get_site_name() {
 	echo $SITE
 }
 
-# vsudo <cmd> ...
+function get_slice_dir () {
+    echo $HOME/current/
+}
+
+SLICEHOME=$( get_slice_dir )
+SLICENAME=$( get_slice_name )
