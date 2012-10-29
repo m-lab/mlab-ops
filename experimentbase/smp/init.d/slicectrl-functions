@@ -7,7 +7,7 @@ function start_rsync () {
     rsync --daemon --config=/etc/rsyncd.conf --verbose
 }
 function stop_rsync () {
-    pkill -f rsync
+    pkill -f rsync || :
 }
 
 function find_and_exec () {
