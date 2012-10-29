@@ -1,6 +1,12 @@
 #!/bin/bash
 
+source /etc/slice-functions
 echo "Stopping service"
-# pkill -TERM -f myservice-extra-process
-sudo /sbin/service httpd stop
+
+sudo /sbin/service lighttpd stop
+if pgrep -f "pathchirp_rcv|pathchirp_snd" > /dev/null ; then
+    pkill -f pathchirp_rcv
+    pkill -f pathchirp_snd
+fi
+
 exit $?

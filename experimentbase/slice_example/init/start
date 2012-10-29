@@ -1,6 +1,10 @@
 #!/bin/bash
 
+source /etc/slice-functions
 echo "Starting service"
-# $PWD/bin/myservice < /dev/null &> /dev/null &
-sudo /sbin/service httpd start
+
+sudo /sbin/service lighttpd start
+$SLICEHOME/bin/pathchirp_rcv &> /var/log/pathchirp/rcv.log &
+$SLICEHOME/bin/pathchirp_snd &> /var/log/pathchirp/snd.log &
+
 exit $?
