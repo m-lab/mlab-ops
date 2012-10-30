@@ -1,15 +1,8 @@
 #!/bin/bash
 
-echo "HELLO WORLD!"
 set -x
 set -e
 
-if [ ! -f /etc/mlab/bootstrap-functions ] ; then
-    echo "ERROR: missing bootstrap-functions"
-    exit 1
-fi
-
-source /etc/mlab/bootstrap-functions
 source $PWD/etc/slice-functions
 
 function setup_rsync () {
@@ -27,36 +20,19 @@ function setup_rsync () {
 }
 
 setup_rsync $SLICENAME
+assert_dir "/etc/cron.hourly"
 
-install_file etc/slice-functions /etc/
-install_file bin/slice-recreate  /usr/bin/
-install_file bin/slice-restart   /usr/bin/
-install_file init.d/slicectrl-functions    /etc/init.d/
-install_file init.d/slicectrl /etc/init.d/
+install_file etc/cron.hourly/update-experiment.sh /etc/cron.hourly/
+install_file etc/slice-functions        /etc/
+install_file bin/slice-recreate         /usr/bin/
+install_file bin/slice-restart          /usr/bin/
+install_file init.d/slicectrl-functions /etc/init.d/
+install_file init.d/slicectrl           /etc/init.d/
 
 /sbin/chkconfig slicectrl on
 
-assert_dir "/etc/cron.hourly"
-cat <<\EOF > /etc/cron.hourly/update-experiment.sh
-#!/bin/bash
-set -x
-set -e
-echo "RUNNING update-experiment.sh"
-if [ ! -f /etc/mlab/bootstrap-functions ] ; then
-    echo "ERROR: missing bootstrap-functions"
-    exit 1
-fi
-source /etc/mlab/bootstrap-functions
-source /etc/slice-functions
-
-if [ $UID -eq "0" ] ; then
-    su - $SLICENAME -c "$0"
-else
-    PACKAGE_SLICE=$( get_url_for_file slice-packages/$SLICENAME.tar.gz )
-    PREFIX=/home/$SLICENAME
-    update $PACKAGE_SLICE
-fi
-EOF
-
 chmod 755 /etc/cron.hourly/update-experiment.sh
-/etc/cron.hourly/update-experiment.sh
+if [ ! -d /home/$SLICENAME/current ] ; then
+    /etc/cron.hourly/update-experiment.sh
+    /sbin/service slicectrl start
+fi
