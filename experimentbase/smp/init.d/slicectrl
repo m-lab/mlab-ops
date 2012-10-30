@@ -12,10 +12,7 @@
 COMMAND="$1"
 shift
 
-source /etc/slice-functions
 source /etc/init.d/slicectrl-functions
-
-SLICENAME=$( get_slice_name )
 
 PATH=$PATH:/sbin:/bin:/usr/sbin:/usr/bin
 
@@ -26,14 +23,14 @@ function restart() {
 
 function stop () {
     echo "stopping" 
-    stop_rsync
     stop_slice
+    stop_manager
 }
 
 function start () {
     echo "starting"
-    start_rsync
     start_slice
+    start_manager
 }
 
 function status () {
