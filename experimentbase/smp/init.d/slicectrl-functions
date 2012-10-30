@@ -1,34 +1,48 @@
 #!/bin/bash
 
 source /etc/slice-functions
-source /etc/mlab/bootstrap-functions
 
-function start_rsync () {
-    rsync --daemon --config=/etc/rsyncd.conf --verbose
-}
-function stop_rsync () {
-    pkill -f rsync || :
-}
-
-function find_and_exec () {
+function find_and_exec_slice () {
     local file=$1
-    slicename=$( get_slice_name )
-    if [ -f /home/$slicename/current/init/$file ] ; then
-        su - $slicename -c /home/$slicename/current/init/$file
+    if [ -x /etc/mlab/current/init/verify ] ; then
+        /etc/mlab/current/init/verify verify $SLICEHOME
     fi
+    if [ -f $SLICEHOME/init/$file ] ; then
+        su - $SLICENAME -c $SLICEHOME/init/$file || ( \
+                echo "Error: stopping due to error in $file" && exit 1 )
+    fi
+}
+function find_and_exec_root () {
+    local file=$1
+    if [ -x /etc/mlab/current/init/verify ] ; then
+        /etc/mlab/current/init/verify verify /etc/mlab/current
+    fi
+    if [ -x /etc/mlab/current/init/$file ] ; then
+        /etc/mlab/current/init/$file || ( \
+                echo "Error: stopping due to error in $file" && exit 1 )
+    fi
+}
+
+function start_manager () {
+    echo "starting slice manager.."
+    find_and_exec_root start
+}
+function stop_manager () {
+    echo "stopping slice manager.."
+    find_and_exec_root stop
 }
 
 function start_slice () {
     echo "starting slice.."
-    find_and_exec start
+    find_and_exec_slice start
 }
 
 function stop_slice () {
     echo "stopping slice.."
-    find_and_exec stop
+    find_and_exec_slice stop
 }
 
 function status_slice () {
     echo "slice status.."
-    find_and_exec status
+    find_and_exec_slice status
 }
