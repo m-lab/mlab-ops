@@ -49,6 +49,27 @@ your experiment package:
                                  and then create a new version of your slice.
                                  This effectively simulates a reinstall.
 
+EXPERIMENT PACKAGE CREATION
+===========================
+
+There is a single requirement from the directory layout of your experiment
+package.  Beyond this requirement, your experiment package may include any
+additional files and directories.  
+
+The experiment package is expected to have an 'init' directory at the root of
+the archive.  The scripts expected in 'init' are described below.
+
+The experiment package is unpacked in a directory rooted at $SLICEHOME.  
+
+    tar -C <slicedir> -zcvf <slicename.tar.gz init [ <dir1>, <fileN>, ... ]
+
+So, at a minimum, after unpacking an experiment package, the directory layout
+would be:
+
+    $SLICEHOME/init   
+    $SLICEHOME/dir1
+    $SLICEHOME/fileN
+
 SCRIPTS EXPECTED FROM EXPERIMENT
 ================================
 
@@ -75,38 +96,52 @@ Scripts in experiment package:
 
     init/initialize - optional.  
 
-            If your experiment requires additional one-time configuration such
-            as installation of dependent packages, setup of config files in
-            httpd or other, this is the place to do it.  
+        If your experiment requires additional one-time configuration such as
+        installation of dependent packages, setup of config files in httpd or
+        other, this is the place to do it.  
             
-            The initialize script should be idempotent; it should be possible
-            to run it repeatedly without ill effect.  'initialize' will be run
-            every time a new version of your slice package is installed.  But,
-            if package dependencies have already been installed, then it is
-            not necessary to repeat them, or new dependencies may have been
-            added in the new version.
+        The initialize script should be idempotent; it should be possible to
+        run it repeatedly without ill effect.  'initialize' will be run every
+        time a new version of your slice package is installed.  But, if
+        package dependencies have already been installed, then it is not
+        necessary to repeat them, or new dependencies may have been added in
+        the new version.
 
-            If initialize fails, it should return a non-zero exit status.
-            This will prevent the experiment from continuing with an
-            un-initialized environment.
+        If initialize fails, it should return a non-zero exit status.  This
+        will prevent the experiment from continuing with an un-initialized
+        environment.
 
     init/start - required. 
 
-            This script should start any processes needed by your service.
-            Running 'start' more than once should behave correctly.
+        This script should start your service and any processes needed by your
+        service.  Running 'start' more than once should be well behaved. 
+        i.e.  check that process is not running before executing: 
+            pgrep $SERVICE_NAME > /dev/null || ($SERVICE_NAME &)
               
     init/stop -  required.
             
-            This script should gracefully stop any processes that were started
-            by your service. 
+        This script should gracefully stop any processes that were started by
+        your service. 
 
     init/status - optional, encouraged
 
-            This script should return a status for the running service
-            suitable for input to Nagios.  By default, service status is just
-            the number of processes running.  You are encouraged to provide a
-            more meaningful indication of service health and liveness.  This
-            will assist you when observing the status of your service across
-            M-Lab and it will assist M-Lab operators who may see issues first.
+        You are encouraged to provide a meaningful indication of service
+        health and liveness.  This will assist you when observing the status
+        of your service across M-Lab and it will assist M-Lab operators who
+        may see and respond to issues first.
+
+        A minimal example script is included
+        [https://code.google.com/p/m-lab/source/browse/experimentbase/slice_example/init/status?repo=ops here]
+
+        The status script will be called periodically, i.e. once an hour.
+
+        The 'status' script should print a one-line status message and have
+        exit status of 0, 1, 2, 3 corresponding to OK, WARNING, CRITICAL, or
+        UNKNOWN.  As well the script should return in less than 60 seconds.
+        
+        A minimal example might verify the presence of a server process.  A
+        better example might check for liveness of open ports by a server
+        process.  An excellent example might run a live test of the service
+        using the client protocol.
 
 
