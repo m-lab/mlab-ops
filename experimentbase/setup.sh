@@ -7,13 +7,7 @@ if [ -z "$1" ] ; then
     exit 1
 fi
 mkdir -p build
-#pushd initscript
-#    sed -e '/ALLFUNCTIONS/ { 
-#      r bootstrap-functions
-#      d 
-#    }' init.sh > ../build/update-manager.sh
-#    chmod 755 ../build/update-manager.sh
-#popd
+
 cp initscript/bootstrap-functions build/update-manager.sh
 tar -C smp -zcvf build/slice-management-package.tar.gz .
 tar -C slice_example -zcvf build/$1.tar.gz bin init 
