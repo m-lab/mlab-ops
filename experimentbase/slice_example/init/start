@@ -4,7 +4,11 @@ source /etc/slice-functions
 echo "Starting service"
 
 sudo /sbin/service lighttpd start
-$SLICEHOME/bin/pathchirp_rcv &> /var/log/pathchirp/rcv.log &
-$SLICEHOME/bin/pathchirp_snd &> /var/log/pathchirp/snd.log &
+if ! pgrep -f pathchirp_rcv > /dev/null ; then
+    $SLICEHOME/bin/pathchirp_rcv &> /var/log/pathchirp/rcv.log &
+fi
+if ! pgrep -f pathchirp_snd > /dev/null; then
+    $SLICEHOME/bin/pathchirp_snd &> /var/log/pathchirp/snd.log &
+fi
 
 exit $?
