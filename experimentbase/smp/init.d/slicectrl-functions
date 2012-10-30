@@ -8,7 +8,7 @@ function find_and_exec_slice () {
         /etc/mlab/current/init/verify verify $SLICEHOME
     fi
     if [ -f $SLICEHOME/init/$file ] ; then
-        su - $SLICENAME -c $SLICEHOME/init/$file || ( \
+        su - $SLICENAME -c "cd $SLICEHOME; $SLICEHOME/init/$file" || ( \
                 echo "Error: stopping due to error in $file" && exit 1 )
     fi
 }
