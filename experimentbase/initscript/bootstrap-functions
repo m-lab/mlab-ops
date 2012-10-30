@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+#set -x
 set -e
 
 # SETUP FUNCTIONS
@@ -165,7 +165,11 @@ function package_setup () {
     if [ $RETVAL -eq 0 ] ; then
         if unpack_and_initialize $filename ; then
             save_etag_from_url $url
+        else 
+            return 1
         fi
+    else
+        return 1
     fi
 }
 
@@ -207,6 +211,10 @@ function unpack_and_initialize () {
     tar -C current -po -zxf $PREFIX/downloads/$filename
     if [ -f current/init/initialize ] ; then
         cd current
+        if [ -x /etc/mlab/current/init/verify ] ; then
+            /etc/mlab/current/init/verify save $PREFIX/current
+        fi
+        chmod -R a-w .
         ./init/initialize
         return $?
     else
@@ -222,8 +230,9 @@ function update () {
         echo "package is latest: $package"
     else 
         echo "package is NOT latest: $package"
-        package_setup $package
+        package_setup $package || return 1
     fi
+    return 0
 }
 
 function install_file () {
@@ -255,16 +264,6 @@ function assert_dir () {
             echo "ERROR: No $dir!" && exit 1 )
 }
 
-function setup_crond_hourly_update () {
-    # link this script to run hourly.
-    CRONSCRIPT=/etc/cron.hourly/$( basename $SCRIPT )
-    if [ -f $SCRIPT ] && \
-       [ ! -e $CRONSCRIPT  ] ; then
-        assert_dir "/etc/cron.hourly"
-        ln -s $SCRIPT $CRONSCRIPT
-    fi
-}
-
 function setup_crond () {
     # ENABLE CROND
     /sbin/chkconfig rsyslog on
@@ -276,11 +275,11 @@ function setup_crond () {
     l=$( pgrep -f crond | wc -l )
     if [ $l -eq 0 ] ; then
         # START CROND IF IT IS NOT RUNNING
-        cat <<EOF > /usr/bin/fakemail.sh
+        cat <<EOF > /usr/bin/logmessages.sh
 #!/bin/bash
 cat >> /var/log/cron.output
 EOF
-        chmod 755 /usr/bin/fakemail.sh
+        chmod 755 /usr/bin/logmessages.sh
         cat <<EOF > /etc/logrotate.d/cronoutput
 /var/log/cron.output {
     copytruncate
@@ -291,9 +290,10 @@ EOF
     missingok
 }
 EOF
-        echo "CRONDARGS='-m /usr/bin/fakemail.sh'" > /etc/sysconfig/crond
+        echo "CRONDARGS='-m /usr/bin/logmessages.sh'" > /etc/sysconfig/crond
         /sbin/service crond start
     fi
+    return 0
 }
 
 function reset () {
@@ -310,17 +310,27 @@ function reset () {
     rm -rf /home/mlab_ops/previous*
 }
 
-function initialize_for_initscript () {
+function bootstrap_initialize () {
     setup_crond
+    echo "woowowowow!"
+
+    ## copy this script to a known location for other scripts to import
+    [ ! -d /etc/mlab/ ] && mkdir -p /etc/mlab
+    assert_dir "/etc/mlab"
+    install_file $SCRIPT /etc/mlab/bootstrap-functions
+    [ -f /etc/mlab/bootstrap-functions ] || return 1
+    return 0
+}
+
+function bootstrap_install_updater () {
 
     ## re-run this script hourly
     assert_dir "/etc/cron.hourly"
     CRONSCRIPT=/etc/cron.hourly/$( basename $SCRIPT )
     [ ! -e $CRONSCRIPT  ] && ln -s $SCRIPT $CRONSCRIPT
+    [ -e $CRONSCRIPT ] || return 1
 
-    ## copy this script to a known location for other scripts to import
-    [ ! -d /etc/mlab/ ] && mkdir -p /etc/mlab
-    install_file $SCRIPT /etc/mlab/bootstrap-functions
+    return 0
 }
 
 if [ "$BASH_SOURCE" = "$0" ] ; then
@@ -345,10 +355,29 @@ if [ "$BASH_SOURCE" = "$0" ] ; then
     elif [ "$COMMAND" = "start" ] ; then
 
         assert_sanity_checks $SLICENAME
-        initialize_for_initscript
-        update $PACKAGE_MANAGE
-        RETVAL=$?
-        exit $RETVAL
+        if ! bootstrap_initialize ; then
+            echo "Could not bootstrap system!"
+            exit 1
+        fi
+        if ! bootstrap_install_updater ; then
+            echo "Could install updater system!"
+            exit 1
+        fi 
+        if [ ! -d /etc/mlab/current ] ; then
+            update $PACKAGE_MANAGE
+            RETVAL=$?
+        fi
+        if [ -x /etc/mlab/current/init/start ] ; then
+            /etc/mlab/current/init/start
+        fi
+        exit $?
+
+    elif [ "$COMMAND" = "stop" ] ; then
+
+        if [ -x /etc/mlab/current/init/stop ] ; then
+            /etc/mlab/current/init/stop
+        fi
+        exit $?
 
     elif [ "$COMMAND" = "update" ] ; then
 
