@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [ ! -f /etc/mlab/bootstrap-functions ] ; then
+    echo "ERROR: missing bootstrap-functions"
+    exit 1
+fi
+source /etc/mlab/bootstrap-functions
+
 function get_slice_ipv4() {
 	## NOTE: this call should call out to vsys to get an authoritative list of
 	## IPs assigned to this slice in /etc/vservers/interfaces/*/addr
@@ -29,9 +35,66 @@ function get_site_name() {
 	echo $SITE
 }
 
-function get_slice_dir () {
-    echo $HOME/current/
+function get_slice_current_dir () {
+    echo /home/$SLICENAME/current/
 }
 
-SLICEHOME=$( get_slice_dir )
+function checksum_dir () {
+    local dir=$1
+    local operation=$2
+    find $dir -name .checksum -prune -o \
+              -type f -a -exec md5sum {} \; 2> /dev/null | \
+    while read sum file ; do
+        if [ "$operation" = "save" ] ; then
+            if ! save_checksum $dir/.checksum $sum $file ; then
+                echo "Failed to save checksum for: $file"
+                return 1
+            fi
+        elif [ "$operation" = "verify" ] ; then
+            if ! verify_checksum $dir/.checksum $sum $file ; then
+                return 1
+            fi
+        else
+            echo "what chu talkin' 'bout?"
+            return 1
+        fi
+    done || return 1
+
+    return 0
+}
+
+function save_checksum () {
+    local tmp=$1
+    local value=$2
+    local file=$3
+
+    local d=$tmp/$( dirname $file )
+    local f=$tmp/$file
+
+    mkdir -p $d || return 1
+    echo "$value  $file" > $f || return 1
+    return 0
+}
+
+function verify_checksum () {
+    local tmp=$1
+    local value=$2
+    local file=$3
+
+    local f=$tmp/$file
+    local original=$( cat $f )
+
+    if [ x"$original" = x"$value  $file" ] ; then
+        return 0
+    else
+        echo "Checksum mismach on: $file"
+        echo "      current: $value "
+        echo "     original: ${original:0:32}"
+        return 1
+    fi
+}
+
 SLICENAME=$( get_slice_name )
+SLICEHOME=$( get_slice_current_dir )
+SLICEPREFIX=/home/$SLICENAME/
+
