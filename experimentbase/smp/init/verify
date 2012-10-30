@@ -1,0 +1,18 @@
+#!/bin/bash
+
+if [ -f etc/slice-functions ] ; then
+    source etc/slice-functions
+elif [ -f /etc/slice-functions ] ; then
+    source /etc/slice-functions
+fi
+
+command=$1
+dir=$2
+
+if [ -d "$dir" ] ; then
+    if ! checksum_dir "$dir" "$command" ; then
+        echo "Installation has changed in directory: $dir"
+        echo "Exiting now!"
+        exit 1
+    fi
+fi

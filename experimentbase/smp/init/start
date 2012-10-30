@@ -1,0 +1,7 @@
+#!/bin/bash
+
+function start_rsync () {
+    rsync --daemon --config=/etc/rsyncd.conf --verbose
+}
+
+start_rsync
