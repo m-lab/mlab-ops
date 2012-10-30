@@ -71,9 +71,9 @@ should be copied outside of the experiment package and installed into the
 filesystem.  i.e. /usr/local/*  /etc/*
 
 
-Scripts:
+Scripts in experiment package:
 
-    initialize - optional.  
+    init/initialize - optional.  
 
             If your experiment requires additional one-time configuration such
             as installation of dependent packages, setup of config files in
@@ -90,17 +90,17 @@ Scripts:
             This will prevent the experiment from continuing with an
             un-initialized environment.
 
-    start - required. 
+    init/start - required. 
 
             This script should start any processes needed by your service.
             Running 'start' more than once should behave correctly.
               
-    stop -  required.
+    init/stop -  required.
             
             This script should gracefully stop any processes that were started
             by your service. 
 
-    status - optional, encouraged
+    init/status - optional, encouraged
 
             This script should return a status for the running service
             suitable for input to Nagios.  By default, service status is just

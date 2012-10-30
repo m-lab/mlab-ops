@@ -26,4 +26,3 @@ PATTERN="^#server.port.*= 81$"
 if sudo grep -q "$PATTERN" /etc/lighttpd/lighttpd.conf ; then
     sudo sed -i -e "s/$PATTERN/server.port = 8088/g" /etc/lighttpd/lighttpd.conf
 fi
-
