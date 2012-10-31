@@ -3,13 +3,15 @@ import session as s
 import sys
 import pprint
 
-def MakeSite(loginbase,name,abbreviated_name):
+def MakeSite(loginbase,name,abbreviated_name, 
+                       url="http://www.measurementlab.net/"):
     site = s.api.GetSites({"login_base":loginbase})
     if len(site) == 0:
         print "MakeSite(%s,%s,%s)"%(loginbase,name,abbreviated_name)
         s.api.AddSite({"name":name,
                      "abbreviated_name":abbreviated_name,
-                     "login_base": loginbase})
+                     "login_base": loginbase,
+                     "url" : url})
         site = s.api.GetSites({"login_base":loginbase})
     else:
         print "Confirmed: %s is in DB" % loginbase
