@@ -34,6 +34,7 @@ function assert_sanity_checks () {
 }
 
 function get_package_and_verify () {
+    local pkgdir=$1
     # filename for the publickey we will use to verify the stage2 initscript
     PUBKEY_FN=$( mktemp /tmp/publickey.XXXXXXXXXX )
 
@@ -41,7 +42,7 @@ function get_package_and_verify () {
     STAGE2_FN=$( mktemp /tmp/stage2-initscript.XXXXXXXXXX )
 
     # URL for the stage2 initscript
-    STAGE2_URL="$1"
+    STAGE2_URL="$2"
     STAGE2_FILE=$( basename $STAGE2_URL )
 
     # filename and URL for the signature of the stage2 initscript
@@ -115,8 +116,8 @@ ZEOF
     done
 
     # NOTE: rename tmp file to proper filename
-    mkdir -p $PREFIX/downloads
-    cp $STAGE2_FN $PREFIX/downloads/$STAGE2_FILE 
+    mkdir -p $pkgdir/downloads
+    cp $STAGE2_FN $pkgdir/downloads/$STAGE2_FILE 
     rm -f $PUBKEY_FN
     rm -f $STAGE2_FN
     rm -f $STAGE2_SIGNATURE_FN
@@ -124,14 +125,15 @@ ZEOF
 }
 
 function save_etag_from_url () {
-    local url=$1
+    local pkgdir=$1
+    local url=$2
     local file=$( basename $url )
     ETAG=$( get_etag_from_url $url )
-    mkdir -p $PREFIX/etag/
+    mkdir -p $pkgdir/etag/
     if [ -z "$ETAG" ] ; then
         return 1
     else
-        echo $ETAG > $PREFIX/etag/$file
+        echo $ETAG > $pkgdir/etag/$file
         return 0
     fi
 }
@@ -147,9 +149,10 @@ function get_etag_from_url () {
 }
 
 function get_etag_from_file () {
-    local url=$1
+    local pkgdir=$1
+    local url=$2
     local file=$( basename $url )
-    ETAG=$( cat $PREFIX/etag/$file 2> /dev/null )
+    ETAG=$( cat $pkgdir/etag/$file 2> /dev/null )
     if [ -z "$ETAG" ] ; then
         echo "missing-etag-in-file"
     else
@@ -158,13 +161,14 @@ function get_etag_from_file () {
 }
 
 function package_setup () {
-    local url=$1
+    local pkgdir=$1
+    local url=$2
     local filename=$( basename $url )
-    get_package_and_verify $url
+    get_package_and_verify $pkgdir $url
     RETVAL=$?
     if [ $RETVAL -eq 0 ] ; then
-        if unpack_and_initialize $filename ; then
-            save_etag_from_url $url
+        if unpack_and_initialize $pkgdir $filename ; then
+            save_etag_from_url $pkgdir $url
         else 
             return 1
         fi
@@ -174,9 +178,10 @@ function package_setup () {
 }
 
 function package_is_latest () {
-    local url=$1
+    local pkgdir=$1
+    local url=$2
     local url_et=$( get_etag_from_url $url )
-    local cached_et=$( get_etag_from_file $url )
+    local cached_et=$( get_etag_from_file $pkgdir $url )
     
     if test "$url_et" == "$cached_et" ; then
         return 0
@@ -195,10 +200,10 @@ function enough_disk_space () {
 }
 
 function unpack_and_initialize () {
-    filename=$1
-    cd $PREFIX
+    local pkgdir=$1
+    local filename=$2
+    cd $pkgdir
     if [ -d current ] ; then
-        #suffix=$( date +%Y-%m-%d-%H:%M )
         suffix=$( stat --format=%y current | \
                   awk -F. '{print $1}' | tr ' ' '-' )
         if [ -d previous-$suffix ] ; then
@@ -208,29 +213,31 @@ function unpack_and_initialize () {
     fi
     mkdir -p current
     # NOTE: -po removes the owners in the archive.
-    tar -C current -po -zxf $PREFIX/downloads/$filename
+    tar -C current -po -zxf $pkgdir/downloads/$filename
     if [ -f current/init/initialize ] ; then
         cd current
         if [ -x /etc/mlab/current/init/verify ] ; then
-            /etc/mlab/current/init/verify save $PREFIX/current
+            /etc/mlab/current/init/verify save $pkgdir/current
         fi
         chmod -R a-w .
+        chmod u+w .
         ./init/initialize
         return $?
     else
-        echo "NO SUCH FILE: $PREFIX/current/init/initialize" 
+        echo "NO SUCH FILE: $pkgdir/current/init/initialize" 
         return 1
     fi
 }
 
 function update () {
-    local package=$1
+    local pkgdir=$1
+    local package=$2
     echo "update $package"
-    if package_is_latest $package ; then
+    if package_is_latest $pkgdir $package ; then
         echo "package is latest: $package"
     else 
         echo "package is NOT latest: $package"
-        package_setup $package || return 1
+        package_setup $pkgdir $package || return 1
     fi
     return 0
 }
@@ -297,22 +304,21 @@ EOF
 }
 
 function reset () {
-    rm -f /etc/slicename
-    rm -f /etc/cron.hourly/update-manager.sh
-    rm -rf $PREFIX
-    rm -f /etc/rsyncd.conf
-    rm -f /etc/slice-functions
-    rm -f /etc/init.d/slicectrl.sh
-    rm -f /etc/init.d/slicectrl-functions
-    rm -rf /home/mlab_ops/current
-    rm -rf /home/mlab_ops/downloads
-    rm -rf /home/mlab_ops/etag
-    rm -rf /home/mlab_ops/previous*
+    rm -f  /etc/slicename
+    rm -f  /etc/cron.hourly/update-manager.sh
+    rm -rf /etc/mlab/
+    rm -f  /etc/rsyncd.conf
+    rm -f  /etc/slice-functions
+    rm -f  /etc/init.d/slicectrl.sh
+    rm -f  /etc/init.d/slicectrl-functions
+    rm -rf /opt/slice/
+    rm -f /home/mlab_ops
+    mkdir /home/mlab_ops
+    chown mlab_ops:slices /home/mlab_ops
 }
 
 function bootstrap_initialize () {
     setup_crond
-    echo "woowowowow!"
 
     ## copy this script to a known location for other scripts to import
     [ ! -d /etc/mlab/ ] && mkdir -p /etc/mlab
@@ -364,7 +370,7 @@ if [ "$BASH_SOURCE" = "$0" ] ; then
             exit 1
         fi 
         if [ ! -d /etc/mlab/current ] ; then
-            update $PACKAGE_MANAGE
+            update /etc/mlab $PACKAGE_MANAGE
             RETVAL=$?
         fi
         if [ -x /etc/mlab/current/init/start ] ; then
@@ -381,7 +387,7 @@ if [ "$BASH_SOURCE" = "$0" ] ; then
 
     elif [ "$COMMAND" = "update" ] ; then
 
-        update $PACKAGE_MANAGE
+        update /etc/mlab $PACKAGE_MANAGE
         RETVAL=$?
         exit $RETVAL
 
