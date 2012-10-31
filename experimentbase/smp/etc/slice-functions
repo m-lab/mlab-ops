@@ -36,13 +36,14 @@ function get_site_name() {
 }
 
 function get_slice_current_dir () {
-    echo /home/$SLICENAME/current/
+    echo /home/$SLICENAME/
 }
 
 function checksum_dir () {
     local dir=$1
     local operation=$2
     find $dir -name .checksum -prune -o \
+              -name ".bash*"  -prune -o \
               -type f -a -exec md5sum {} \; 2> /dev/null | \
     while read sum file ; do
         if [ "$operation" = "save" ] ; then
