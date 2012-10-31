@@ -9,6 +9,6 @@ if [ $UID -eq "0" ] ; then
     su - $SLICENAME -c "$0"
 else
     PACKAGE_SLICE=$( get_url_for_file slice-packages/$SLICENAME.tar.gz )
-    PREFIX=/home/$SLICENAME
-    update $PACKAGE_SLICE
+    update /opt/slice $PACKAGE_SLICE
+    cp /etc/skel/.bash* /opt/slice/current/
 fi
