@@ -31,6 +31,15 @@ install_file init.d/slicectrl           /etc/init.d/
 
 /sbin/chkconfig slicectrl on
 
+mkdir -p /opt/slice/
+chmod 755 /opt/slice/
+chown $SLICENAME:slices /opt/slice/
+
+# NOTE: change /home/$SLICENAME into a link to /opt/slice/
+# This will allow user-privileged management of package updates.
+mv /home/$SLICENAME /opt/slice/current
+ln -s /opt/slice/current /home/$SLICENAME
+
 chmod 755 /etc/cron.hourly/update-experiment.sh
 if [ ! -d /home/$SLICENAME/current ] ; then
     /etc/cron.hourly/update-experiment.sh
