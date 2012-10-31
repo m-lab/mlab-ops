@@ -5,7 +5,7 @@ source /etc/slice-functions
 function find_and_exec_slice () {
     local file=$1
     if [ -x /etc/mlab/current/init/verify ] ; then
-        /etc/mlab/current/init/verify verify $SLICEHOME
+        /etc/mlab/current/init/verify verify /opt/slice/current
     fi
     if [ -f $SLICEHOME/init/$file ] ; then
         su - $SLICENAME -c "cd $SLICEHOME; $SLICEHOME/init/$file" || ( \
