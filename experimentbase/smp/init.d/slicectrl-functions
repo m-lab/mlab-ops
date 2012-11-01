@@ -23,6 +23,33 @@ function find_and_exec_root () {
     fi
 }
 
+function start_before_everything () {
+    pgrep -f ".*" > /var/run/$SLICENAME/pids.beforestart
+}
+
+function kill_remaining () {
+    local signal=$1
+    KILLED=
+    pgrep -v -f "slicectrl|rsync" > /var/run/$SLICENAME/pids.afterstop
+    if [ -f /var/run/$SLICENAME/pids.beforestart ] ; then
+        for pid in `comm -23 <( sort /var/run/$SLICENAME/pids.afterstop ) \
+                             <( sort /var/run/$SLICENAME/pids.beforestart )`; do 
+            echo "STILL RUNNING: " `ps ax | grep $pid`
+            kill -$signal $pid
+            KILLED="TRUE"
+        done
+    fi
+    echo $KILLED
+}
+
+function stop_after_everything () {
+    KILLED=$( kill_remaining TERM )
+    if [ -n "$KILLED" ] ; then
+        sleep 3
+        KILLED=$( kill_remaining KILL )
+    fi
+}
+
 function start_manager () {
     echo "starting slice manager.."
     find_and_exec_root start

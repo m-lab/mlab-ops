@@ -30,6 +30,7 @@ install_file init.d/slicectrl-functions /etc/init.d/
 install_file init.d/slicectrl           /etc/init.d/
 
 /sbin/chkconfig slicectrl on
+mkdir -p /var/run/$SLICENAME
 
 mkdir -p /opt/slice/
 chmod 755 /opt/slice/

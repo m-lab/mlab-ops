@@ -25,10 +25,12 @@ function stop () {
     echo "stopping" 
     stop_slice
     stop_manager
+    stop_after_everything
 }
 
 function start () {
     echo "starting"
+    start_before_everything
     start_slice
     start_manager
 }
