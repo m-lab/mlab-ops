@@ -144,20 +144,9 @@ def parse():
         print "";
 
 def main():
-    #print "
-    #print "X-Open-Error: yes\n\n";
-    #print "Content-Type: text/plain\n";
     print "Content-Type: text/plain";
     print "X-Database-Mtime: %s\n" % int(time.time())
     parse()
-
-    #h = html.HTML()
-    #h = h.html(newlines=True)
-    #h.head("test")
-    #b = h.body(newlines=True)
-    #b.h1("this is a title")
-    #b.h2("second header")
-    #print h
 
 if __name__ == "__main__":
     main()
