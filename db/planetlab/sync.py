@@ -104,46 +104,69 @@ def PutNodeInNodegroup(hostname, node_id, nodegroup_name):
         #        if (n,v) not in ok_tags:
         #            api.AddNodeTag(host, n, v)
 
+def setTagTypeId(tagname, tags):
+    tagtype_list = s.api.GetTagTypes({"tagname":tagname})
+    if len(tagtype_list)==0:
+        print "BUG: %s TagType does not exist.  Need to update MyPLC" % tagname
+        sys.exit(1)
+    else:
+        assert(len(tagtype_list)==1)
+        tags['tag_type_id'] = tagtype_list[0]['tag_type_id']
+    return tags
+
 def MakeInterfaceTags(node_id, interface, tagvalues):
+    """
+        MakeInterfaceTags -- 
+            arguments: node_id, interface on node, new interface tags 
+
+            MakeInterfaceTags will find interface on the given node.
+
+            Then it will compare the provided tagvalues to the existing tags on
+            the interface.  When the provided tags are missing, they are added.
+            When the provided tags are present, the value is verified, and
+            updated when the provided value is different from the stored value.
+
+            Additional logic is necessary to lookup tag-types prior to adding
+            the tags to the interface.
+
+            Extra tags already present on interface are ignored.
+    """
     filter_dict = { "node_id" : node_id, 'ip' : interface['ip'] }
     interface_found = s.api.GetInterfaces(filter_dict)
+    current_tags = s.api.GetInterfaceTags(interface_found[0]['interface_tag_ids'])
 
+    new_tags = {}
     for tagname in tagvalues.keys():
-        new_tags = { tagname : { "tag_type_id":None, "tag":None, "value": tagvalues[tagname] } }
+        new_tags[tagname] = { "tag_type_id":None, "current_tag":None, "value": tagvalues[tagname] }
 
-    for name in new_tags.keys():
-        # look up the tag type so we can pass the tagtypeid to AddTag later.
-        tagtypes = s.api.GetTagTypes({"tagname":name})
-        if len(tagtypes)==0:
-            print "BUG: %s TagType does not exist.  Need to update MyPLC" % name
-            sys.exit(1)
+        for current_tag in current_tags:
+            name = current_tag['tagname']
+            if new_tags.has_key(name):
+                new_tags[name]['current_tag']=current_tag
+
+        # set tag type so we can pass the tagtypeid to AddTag later.
+        setTagTypeId(tagname, new_tags[tagname])
+
+    for tagname,tag in new_tags.iteritems():
+        if tag['current_tag'] is None:
+            print "ADD: tag %s->%s for %s" % (tagname,tag['value'],interface['ip'])
+            interface_id = interface_found[0]['interface_id']
+            type_id = tag['tag_type_id']
+            tag_id = s.api.AddInterfaceTag(interface_id,type_id,tag['value'])
+            if tag_id <= 0:
+                print "BUG: AddInterfaceTag(%d,%s) failed" % (
+                            interface_found[0]['interface_id'],tag['value'])
+                sys.exit(1)
         else:
-            new_tags[name]['tag_type_id'] = tagtypes[0]['tag_type_id']
-
-        current_tags = s.api.GetInterfaceTags(interface_found[0]['interface_tag_ids'])
-        for tag in current_tags:
-            if new_tags.has_key(tag['tagname']):
-                new_tags[tag['tagname']]['tag']=tag
-
-        for k,v in new_tags.iteritems():
-            tid = v['tag_type_id']
-            if not v['tag']:
-                # add setting
-                print "ADD: tag %s->%s for %s" % (k,v['value'],interface['ip'])
-                tag_id = s.api.AddInterfaceTag(interface_found[0]['interface_id'],tid,v['value'])
-                if tag_id <= 0:
-                    print "BUG: AddInterfaceTag(%d,%s) failed" % (
-                                interface_found[0]['interface_id'],v['value'])
-                    sys.exit(1)
+            # current_tag is present on Interface already
+            # check to see if it's 
+            current_tag = tag['current_tag']
+            if tag['value'] != current_tag['value'] and tagname not in [ 'alias' ]:
+                print "UPDATE: tag %s from %s->%s for %s" % (tagname,current_tag['value'],tag['value'],interface['ip'])
+                tag_id = current_tag['interface_tag_id']
+                s.api.UpdateInterfaceTag(tag_id,tag['value'])
             else:
-                # update setting
-                tag = v['tag']
-                if tag['value'] != v['value'] and k != 'alias':
-                    print "UPDATE: tag %s from %s->%s for %s" % (k,v['tag']['value'],v['value'],interface['ip'])
-                    tag_id = tag['interface_tag_id']
-                    s.api.UpdateInterfaceTag(tag_id,v['value'])
-                else:
-                    print "Confirmed: tag %s = %s for %s" % (k, v['value'], interface['ip'])
+                print "Confirmed: tag %s = %s for %s" % (tagname, tag['value'], interface['ip'])
 
 def InterfacesAreDifferent(declared, found):
     """ return True if the two dicts are different """
@@ -193,53 +216,8 @@ def MakeInterface(hostname, node_id, interface, is_primary):
         }
         MakeInterfaceTags(node_id, interface, goal)
 
-#    goal = {
-#        "alias"  : {"tag_type_id":None, "tag":None, "value":str(i_id)},
-#        "ifname" : {"tag_type_id":None, "tag":None, "value":"eth0"}
-#    }
-#    if is_primary is not True:
-#        for name in goal.keys():
-#            tagtypes = s.api.GetTagTypes({"tagname":name})
-#            if len(tagtypes)==0:
-#                print "BUG: %s TagType does not exist.  Need to update MyPLC" % name
-#                sys.exit(1)
-#            else:
-#                goal[name]['tag_type_id'] = tagtypes[0]['tag_type_id']
-#
-#            tags = s.api.GetInterfaceTags(interface_found[0]['interface_tag_ids'])
-#            for tag in tags:
-#                if goal.has_key(tag['tagname']):
-#                    goal[tag['tagname']]['tag']=tag
-#
-#            for k,v in goal.iteritems():
-#                tid = v['tag_type_id']
-#                if not v['tag']:
-#                    # add setting
-#                    print "ADD: tag %s->%s for %s" % (k,v['value'],ipaddr)
-#                    tag_id = s.api.AddInterfaceTag(interfaceid,tid,v['value'])
-#                    if tag_id > 0:
-#                        tag = s.api.GetInterfaceTags(tag_id)[0]
-#                    else:
-#                        print "BUG: AddInterfaceTag(%d,%s) failed" % (interfaceid,v['value'])
-#                        sys.exit(1)
-#                else:
-#                    # update setting
-#                    tag = v['tag']
-#                    if tag['value'] <> v['value'] and k is not 'alias':
-#                        print "UPDATE: tag %s from %s->%s for %s" % (k,v['tag']['value'],v['value'],interface['ip'])
-#                        tag_id = tag['tag_id']
-#                        s.api.UpdateInterfaceTag(tag_id,v['value'])
-#                    else:
-#                        print "Confirmed: tag %s = %s for %s" % (k, v['value'], interface['ip'])
-#
-#    #secondary_found = filter(lambda z: z['is_primary'] == False, s.api.GetInterfaces(node['interface_ids']))
-    #alias_ips_in_db = [ x['ip'] for x in secondary_found ]
-    #unspecified_ips_in_db = set(alias_ips_in_db) - set(ipaddrs)
-    #if len(unspecified_ips_in_db) > 0:
-    #    print "'iplist' : %s" % [ a for a in unspecified_ips_in_db ]
-    #    print "WARNING: UNSPECIFIED IP addrs !!! found in DB for host %s" % (host)
-
 def MakeSliceAttribute(slicename, attr):
+    # example:
     #{ 'attrtype': 'nodegroup',
     #  'disk_max': '50000000',
     #  'nodegroup': 'MeasurementLab' }
