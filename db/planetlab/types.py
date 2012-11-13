@@ -57,9 +57,14 @@ class Network(dict):
             raise Exception("'v4' is a mandatory argument. i.e. 64.9.225.128")
         if 'v6' not in kwargs:
             raise Exception("'v6' is a mandatory argument. i.e. 2604:ca00:f000::")
+        if 'v6gw' not in kwargs:
+            kwargs['v6gw'] = None
 
         kwargs['v4'] = NetworkIPv4(prefix=kwargs['v4'])
-        kwargs['v6'] = NetworkIPv6(prefix=kwargs['v6'], last_octet=kwargs['v4'].last())
+        kwargs['v6'] = NetworkIPv6(prefix=kwargs['v6'], 
+                                   last_octet=kwargs['v4'].last(), 
+                                   v6gw=kwargs['v6gw'])
+
         if 'remap' in kwargs:
             kwargs['v4']['remap'] = kwargs['remap']
             kwargs['v6']['remap'] = kwargs['remap']
@@ -77,12 +82,13 @@ class NetworkIPv6(dict):
             msg ="'last_octet' is a mandatory argument. i.e. if v4 "
             msg+="prefix is 192.168.10.64 then last_octet is 64"
             raise Exception(msg)
-        if 'gw' not in kwargs:
-            kwargs['gw'] = None
+        if 'v6gw' not in kwargs:
+            raise Exception("'v6gw' is a mandatory argument. Can be None.")
+
         super(NetworkIPv6, self).__init__(**kwargs)
 
     def ipv6_defaultgw(self):
-        return pl_v6gw(self['prefix'], self['gw'])
+        return pl_v6gw(self['prefix'], self['v6gw'])
 
     def ipv6addr(self, index):
         return pl_v6_primary(index, self['prefix'], int(self['last_octet']))
