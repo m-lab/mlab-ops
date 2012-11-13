@@ -109,6 +109,6 @@ site_list = [
     Site(name='wlg01', net=Network(v4='103.10.233.0',    v6='2404:2000:3000::')), 
 
     # Site for M-Lab testing machines
-    Site(name='nuq0T', net=Network(v4='64.9.225.192',    v6='')), 
+    Site(name='nuq0t', net=Network(v4='64.9.225.192',    v6='')), 
 ]
 
