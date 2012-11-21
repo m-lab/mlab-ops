@@ -358,12 +358,12 @@ class Slice(dict):
             if ( hostname_or_site is None or 
                  hostname_or_site == h    or 
                  hostname_or_site in h ):
+                if not skipwhitelist:
+                    # add this slice to whitelist of all hosts.
+                    WhitelistSliceOnNode(self['name'], h)
                 if not skipsliceips:
                     val = v4 if v6=="" else v4+","+v6
                     attr = Attr(h, ip_addresses=val)
                     MakeSliceAttribute(self['name'], attr)
-                if not skipwhitelist:
-                    # add this slice to whitelist of all hosts.
-                    WhitelistSliceOnNode(self['name'], h)
         return
 
