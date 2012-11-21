@@ -98,17 +98,20 @@ site_list = [
     Site(name='nuq02', net=Network(v4='149.20.5.64',     v6='2001:4F8:1:1001::'), count=4),
     Site(name='ord01', net=Network(v4='4.71.251.128',    v6='2001:1900:3001:B::')), 
     Site(name='par01', net=Network(v4='80.239.168.192',  v6='2001:2030:0000:001A::')), 
+    Site(name='prg01', net=Network(v4='212.162.51.64',   v6='2001:4C08:2003:4::'), count=4), 
     Site(name='sea01', net=Network(v4='38.102.0.64',     v6='2001:550:3200:1::')), 
-    #Site(name='svo01', net=Network(v4=None,              v6='2a01:798:0:13::')),   # not yet created 
-    Site(name='svg01', net=Network(v4='81.167.39.0',     v6='2a01:798:0:13::'), nodegroup='MeasurementLabK32', exclude=[1,2,3]),
+   #Site(name='svo01', net=Network(v4=None,              v6='2a01:798:0:13::')),   # not yet created 
+    Site(name='svg01', net=Network(v4='81.167.39.0',     v6='2a01:798:0:13::'), nodegroup='MeasurementLabK32'),
     Site(name='syd01', net=Network(v4='203.5.76.128',    v6='2001:388:00d0::')), 
     Site(name='syd02', net=Network(v4='175.45.79.0',     v6='2402:7800:0:12::')), 
     Site(name='tpe01', net=Network(v4='163.22.28.0',     v6='2001:e10:6840:28::')), 
     Site(name='trn01', net=Network(v4='194.116.85.192',  v6='2001:7F8:23:307::')), 
-    Site(name='vie01', net=Network(v4='213.208.152.0',   v6='2a01:190:1700:38::'), nodegroup='MeasurementLabK32', exclude=[2,3]), 
+    Site(name='vie01', net=Network(v4='213.208.152.0',   v6='2a01:190:1700:38::'), nodegroup='MeasurementLabK32'), 
     Site(name='wlg01', net=Network(v4='103.10.233.0',    v6='2404:2000:3000::')), 
 
     # Site for M-Lab testing machines
-    Site(name='nuq0t', net=Network(v4='64.9.225.192',    v6='')), 
+    Site(name='nuq0t', net=Network(v4='64.9.225.192',    v6='2604:CA00:F000:3::'), count=4), 
+   # NOTE: mlc servers need special handling
+   #Site(name='mlc',   net=Network(v4='64.9.225.64',     v6='2604:CA00:F000:5::'), domain="measurementlab.net", count=3),  
 ]
 
