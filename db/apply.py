@@ -16,7 +16,7 @@ def usage():
     TODO:
         Implement common operations:
 
-        ./apply.yp --syncsite xyz --getbootimages 
+        ./apply.py --syncsite xyz --getbootimages 
                 This would setup the basic networking, and download boot images.
                 Subsequent calls should assume these are done already.
 
