@@ -29,17 +29,21 @@ def pl_interface(host_index, v4prefix):
 
 def pl_v6_iplist(host_index, v6prefix, last_octet):
     mlab_offset = last_octet + ((host_index - 1) * 13) + 9
-    foo = [ v6prefix+"%s"%ip for ip in range(mlab_offset + 1, mlab_offset + 13) ]
-    return foo
+    ret = []
+    for ip in range(mlab_offset + 1, mlab_offset + 13):
+        ret.append(v6prefix+str(ip))
+    return ret
 
 def pl_v6_primary(host_index, v6prefix, last_octet):
     mlab_offset = last_octet + ((host_index - 1) * 13) + 9
-    return v6prefix+"%s"% mlab_offset
+    return v6prefix+str(mlab_offset)
 
 def pl_iplist(host_index, v4prefix):
     (net_prefix, net_offset, mlab_offset) = breakdown(host_index, v4prefix)
-    foo = [ '%s.%s' % (net_prefix,ip) for ip in range(mlab_offset + 1, mlab_offset + 13) ]
-    return foo
+    ret = [] 
+    for ip in range(mlab_offset + 1, mlab_offset + 13):
+        ret.append('%s.%s' % (net_prefix,ip))
+    return ret
 
 def pl_dracip(host_index, v4prefix):
     (net_prefix, net_offset, mlab_offset) = breakdown(host_index, v4prefix)
@@ -56,19 +60,17 @@ class Network(dict):
         if 'v4' not in kwargs:
             raise Exception("'v4' is a mandatory argument. i.e. 64.9.225.128")
         if 'v6' not in kwargs:
-            raise Exception("'v6' is a mandatory argument. i.e. 2604:ca00:f000::")
+            msg = "'v6' is a mandatory argument. i.e. 2604:ca00:f000::"
+            raise Exception(msg)
         if 'v6gw' not in kwargs:
             kwargs['v6gw'] = None
 
         kwargs['v4'] = NetworkIPv4(prefix=kwargs['v4'])
-        kwargs['v6'] = NetworkIPv6(prefix=kwargs['v6'], 
-                                   last_octet=kwargs['v4'].last(), 
-                                   v6gw=kwargs['v6gw'])
-
-        if 'remap' in kwargs:
-            kwargs['v4']['remap'] = kwargs['remap']
-            kwargs['v6']['remap'] = kwargs['remap']
-            del kwargs['remap']
+        # Allow disabling IPv6
+        if kwargs['v6'] is not None:
+            kwargs['v6'] = NetworkIPv6(prefix=kwargs['v6'],
+                                       last_octet=kwargs['v4'].last(), 
+                                       v6gw=kwargs['v6gw'])
 
         super(Network, self).__init__(**kwargs)
 
@@ -77,7 +79,8 @@ class NetworkIPv6(dict):
         return pprint.pformat(self)
     def __init__(self, **kwargs):
         if 'prefix' not in kwargs:
-            raise Exception("'prefix' is a mandatory argument. i.e. 2604:ca00:f000::")
+            msg = "'prefix' is a mandatory argument. i.e. 2604:ca00:f000::"
+            raise Exception(msg)
         if 'last_octet' not in kwargs:
             msg ="'last_octet' is a mandatory argument. i.e. if v4 "
             msg+="prefix is 192.168.10.64 then last_octet is 64"
@@ -101,7 +104,8 @@ class NetworkIPv6(dict):
              self['name'] in Network.legacy_network_remap and
              index in Network.legacy_network_remap[self['name']] ):
 
-            index_list = Network.legacy_network_remap[self['name']][index].split(",")
+            site = self['name']
+            index_list = Network.legacy_network_remap[site][index].split(",")
             re_order = [ ipv6_list[int(i)] for i in index_list ]
             return re_order
             
@@ -112,7 +116,8 @@ class NetworkIPv4(dict):
         return pprint.pformat(self)
     def __init__(self, **kwargs):
         if 'prefix' not in kwargs:
-            raise Exception("'prefix' is a mandatory argument. i.e.  192.168.10.0")
+            msg="'prefix' is a mandatory argument. i.e.  192.168.10.0"
+            raise Exception(msg)
         super(NetworkIPv4, self).__init__(**kwargs)
 
     def interface(self, index):
@@ -123,7 +128,8 @@ class NetworkIPv4(dict):
         if (Network.legacy_network_remap is not None and 
             self['name'] in Network.legacy_network_remap and
             index in Network.legacy_network_remap[self['name']] ):
-            index_list = Network.legacy_network_remap[self['name']][index].split(",")
+            site = self['name']
+            index_list = Network.legacy_network_remap[site][index].split(",")
 
             re_order = [ ip_list[int(i)] for i in index_list ]
             return re_order
@@ -151,10 +157,19 @@ class Site(dict):
             kwargs['nodegroup'] = 'MeasurementLab'
         if 'pi' not in kwargs:
             kwargs['pi'] = [ ("Stephen","Stuart","sstuart@google.com") ]
+        if 'login_base_prefix' not in kwargs:
+            kwargs['login_base_prefix'] = 'mlab'
 
-        kwargs['net']['v4']['name'] = kwargs['name']
-        kwargs['net']['v6']['name'] = kwargs['name']
-        kwargs['login_base'] = 'mlab%s' % kwargs['name']
+        if kwargs['net'] is not None:
+            kwargs['net']['v4']['name'] = kwargs['name']
+            kwargs['net']['v6']['name'] = kwargs['name']
+        else:
+            # 'net' is None only if there are no nodes for this site
+            assert(kwargs['count'] == 0)
+
+        if 'login_base' not in kwargs:
+            kwargs['login_base'] = '%s%s' % (kwargs['login_base_prefix'],
+                                             kwargs['name'])
         kwargs['sitename'] = 'MLab - %s' % kwargs['name'].upper()
 
         if 'nodes' not in kwargs:
@@ -168,7 +183,9 @@ class Site(dict):
                    ):
                     exclude_ipv6=False
                 n = Node(name=kwargs['name'], index=i, net=kwargs['net'], 
-                         pcu=p, nodegroup=kwargs['nodegroup'], exclude_ipv6=exclude_ipv6)
+                         pcu=p, nodegroup=kwargs['nodegroup'],
+                         exclude_ipv6=exclude_ipv6,
+                         login_base=kwargs['login_base'])
                 kwargs['nodes'][n.hostname()] = n
 
         super(Site, self).__init__(**kwargs)
@@ -230,7 +247,8 @@ class Node(dict):
         if 'exclude_ipv6' not in kwargs:
             raise Exception("'exclude_ipv6' is a mandatory argument.")
 
-        kwargs['login_base'] = 'mlab%s' % kwargs['name']
+        if 'login_base' not in kwargs:
+            kwargs['login_base'] = 'mlab%s' % kwargs['name']
         kwargs['slicelist'] = []
         kwargs['ipv6_secondary'] = []
         super(Node, self).__init__(**kwargs)
@@ -241,14 +259,19 @@ class Node(dict):
         return self['net']['v4'].iplist(self['index'])
     def iplistv6(self):
         return self['net']['v6'].ipv6addr_secondaries(self['index'])
+    def v4gw(self):
+        return self['net']['v4'].interface(self['index'])['gateway']
+    def v6gw(self):
+        return self['net']['v6'].ipv6_defaultgw()
 
     def hostname(self):
         return "mlab%d.%s.measurement-lab.org"  % (self['index'], self['name'])
     def v6interface_tags(self):
+        secondary_list = self['net']['v6'].ipv6addr_secondaries(self['index'])
         goal = {
             "ipv6_defaultgw"       : self['net']['v6'].ipv6_defaultgw(),
             "ipv6addr"             : self['net']['v6'].ipv6addr(self['index']),
-            "ipv6addr_secondaries" : " ".join(self['net']['v6'].ipv6addr_secondaries(self['index']))
+            "ipv6addr_secondaries" : " ".join(secondary_list)
         }
         # TODO: secondaries should be added after slices with ipv6 addresses
         # are added, right?
@@ -258,22 +281,76 @@ class Node(dict):
         if slicename not in self['slicelist']:
             self['slicelist'].append(slicename)
 
+    def ipv6_is_enabled(self):
+        return (self['net'] is not None and self['net']['v6'] is not None)
+
+    def get_interface_attr(self, slice_obj):
+        attr = None
+        if slice_obj['index'] is None:
+            return None
+
+        ip_index = int(slice_obj['index'])
+        v4ip=self.iplist()[ip_index]
+        v4gw=self.v4gw()
+
+        v6ip=""
+        v6gw=""
+        ip_addresses = v4ip
+
+        # update values when the node and the slice have ipv6 enabled
+        if ( self.ipv6_is_enabled() and
+             slice_obj.ipv6_is_enabled(self.hostname())):
+            v6ip=self.iplistv6()[ip_index]
+            v6gw=self.v6gw()
+            ip_addresses = v4ip + "," + v6ip
+
+        print ip_index, v4ip, v4gw, v6ip, v6gw
+
+        if self['nodegroup'] in ['MeasurementLabLXC']:
+            ipv6_is_enabled = slice_obj.ipv6_is_enabled(self.hostname()) 
+            ipv6init = "yes" if ipv6_is_enabled else "no"
+            attr = Attr(self.hostname(),
+                        interface=repr({'bridge':'public0',
+                                        'DEVICE':'eth0',
+                                        'BOOTPROTO':'static',
+                                        'ONBOOT':'yes',
+                                        'DNS1' : '8.8.8.8',
+                                        'DNS2' : '8.8.4.4',
+                                        'PRIMARY' : 'yes',
+                                        'NETMASK' : '255.255.255.192',
+                                        'IPADDR'  : v4ip,
+                                        'GATEWAY' : v4gw,
+                                        'IPV6INIT' : ipv6init,
+                                        'IPV6ADDR' : v6ip,
+                                        'IPV6_DEFAULTGW' : v6gw,}))
+
+        elif self['nodegroup'] in ['MeasurementLab', 'MeasurementLabK32']:
+            attr = Attr(self.hostname(), ip_addresses=ip_addresses)
+        else:
+            raise Exception("unknown nodegroup")
+
+        return attr
+
     def sync(self, skipinterfaces=False):
         node_id = MakeNode(self['login_base'], self.hostname())
         MakePCU(self['login_base'], node_id, self['pcu'].fields())
         PutNodeInNodegroup(self.hostname(), node_id, self['nodegroup'])
         interface = self.interface()
         if not skipinterfaces:
-            MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
+            MakeInterface(self.hostname(), node_id, interface,
+                          interface['is_primary'])
+            goal = { "ifname" : "eth0", "ovs_bridge" : "public0"}
+            MakeInterfaceTags(node_id, interface, goal)
 
         if not self['exclude_ipv6']:
             MakeInterfaceTags(node_id, interface, self.v6interface_tags())
 
-        if not skipinterfaces:
+        if not skipinterfaces and self['nodegroup'] != 'MeasurementLabLXC':
             for ip in self.iplist():
                 interface['ip'] = ip
                 interface['is_primary'] = False
-                MakeInterface(self.hostname(), node_id, interface, interface['is_primary'])
+                MakeInterface(self.hostname(), node_id, interface, 
+                              interface['is_primary'])
         return 
 
 class Attr(dict):
@@ -282,7 +359,8 @@ class Attr(dict):
     #    return str(self)
     def __init__(self, *args, **kwargs):
         if len(args) != 1:
-            raise Exception("The first argument should be the name of a NodeGroup, hostname, or None")
+            raise Exception(("The first argument should be the name "+
+                             "of a NodeGroup, hostname, or None"))
 
         if type(args[0]) == type(None):
             kwargs['attrtype'] = 'all'
@@ -304,7 +382,8 @@ class Slice(dict):
 
     def __init__(self, **kwargs):
         if 'name' not in kwargs:
-            raise Exception("The first argument should be the name of a NodeGroup, hostname, or None")
+            raise Exception(("The first argument should be the name "+
+                             "of a NodeGroup, hostname, or None"))
         if 'index' not in kwargs:
             kwargs['index'] = None
         if 'ipv6' not in kwargs:
@@ -314,9 +393,11 @@ class Slice(dict):
             if type(kwargs['ipv6']) == str:
                 kwargs['ipv6'] = "all"
             elif type(kwargs['ipv6']) == type([]):
-                kwargs['ipv6'] = [ h+'.measurement-lab.org' for h in kwargs['ipv6'] ]
+                domain = '.measurement-lab.org'
+                kwargs['ipv6'] = [ h+domain for h in kwargs['ipv6'] ]
             else:
-                raise Exception("Unrecognized type for ipv6 parameter: %s" % type(kwargs['ipv6']))
+                raise Exception("Unrecognized type for ipv6 parameter: %s" % 
+                                    type(kwargs['ipv6']))
 
         # *ALL* K32 kernels will need the isolate_loopback enabled.
         LOOPBACK=Attr('MeasurementLabK32', isolate_loopback='1')
@@ -328,33 +409,21 @@ class Slice(dict):
         super(Slice, self).__init__(**kwargs)
 
     def add_node_address(self, node):
-        h = node.hostname() 
-        if self['index'] is not None:
-            i = int(self['index'])
-            ipv4=node.iplist()[i]
-            ipv6=node.iplistv6()[i]
-        else:
-            ipv4=None
-            ipv6=None
-        net_tuple = (h, ipv4, "")
-        # the node has ipv6, and the hostname is in the slice's ipv6 list,
-        # or, ipv6 == "all"
-        if ( not node['exclude_ipv6'] and 
-              ( (type(self['ipv6']) == type([]) and h     in self['ipv6']) or 
-                (type(self['ipv6']) == type("") and "all" == self['ipv6']) )
-           ):
-            net_tuple = (h, ipv4, ipv6)
+        self['network_list'].append((node.hostname(), node))
 
-        # do not add the net_tuple if ipv4 is none
-        if net_tuple[1] is not None:
-            self['network_list'].append( net_tuple )
+    def ipv6_is_enabled(self, hostname):
+        return ((isinstance(self['ipv6'], list) and hostname in self['ipv6']) or
+                (isinstance(self['ipv6'], str) and "all" == self['ipv6']) )
         
-    def sync(self, hostname_or_site=None, skipwhitelist=False, skipsliceips=False):
+    def sync(self, hostname_or_site=None, skipwhitelist=False, 
+                                          skipsliceips=False):
         # NOTE: SLICES ARE NOT CREATED HERE.
         #       USERS  ARE NOT ADDED TO SLICES HERE.
+        SyncSliceExpiration(self['name'])
+
         for attr in self['attrs']:
             MakeSliceAttribute(self['name'], attr)
-        for h,v4,v6 in self['network_list']:
+        for h,node in self['network_list']:
             if ( hostname_or_site is None or 
                  hostname_or_site == h    or 
                  hostname_or_site in h ):
@@ -362,8 +431,9 @@ class Slice(dict):
                     # add this slice to whitelist of all hosts.
                     WhitelistSliceOnNode(self['name'], h)
                 if not skipsliceips:
-                    val = v4 if v6=="" else v4+","+v6
-                    attr = Attr(h, ip_addresses=val)
-                    MakeSliceAttribute(self['name'], attr)
+                    attr = node.get_interface_attr(self)
+                    if attr:
+                        MakeSliceAttribute(self['name'], attr)
+
         return
 
