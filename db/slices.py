@@ -36,7 +36,7 @@ slice_list = [
     Slice(name="uw_geoloc4",             index=5, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
     Slice(name="samknows_ispmon",        index=7, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
     Slice(name="gt_bismark",             index=8, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
-    Slice(name="mlab_neubot",            index=9, ipv6=['mlab4.nuq01', 'mlab1.trn01', 'mlab4.nuq02']),
+    Slice(name="mlab_neubot",            index=9, ipv6="all"),
     Slice(name="michigan_1",             index=10, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
     Slice(name='princeton_namecast',     index=11, attrs=[
                     Attr('MeasurementLab',    capabilities='CAP_NET_BIND_SERVICE'),
