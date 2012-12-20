@@ -1,10 +1,7 @@
 #!/usr/bin/python
 
 import pprint
-#from planetlab.types import *
 from planetlab import session
-from slices import *
-from sites  import *
 import sys
 
 def usage():
@@ -20,43 +17,38 @@ def usage():
                 This would setup the basic networking, and download boot images.
                 Subsequent calls should assume these are done already.
 
-        ./apply.py --syncsite xyz --syncslices all
-                Basic networking is complete, double check ipv6, apply only to
-                nodes at site xyz.
-
     Examples:
         ./apply.py --dryrun ....
                 Only perform Get* api calls.  Absolutely no changes are made
                 to the PLC DB. HIGHLY recommended before changes.
 
-        ./apply.py --syncsite all
-                Does everything. Verifies existing sites & slices, creates
-                sites that are non-existent.  This will take a very long time
-                due to the delays for every RPC call to the PLC api.
-
         ./apply.py --syncsite nuq01
-                Creates site, nodes, pcus, and associates slices with 
-                these machines.  Pulls definitions from sites.py & 
-                slices.py
+                Creates site, nodes, and pcus for the given site name.
+
+        ./apply.py --syncslice all --on nuq01
+                Associates all slices with machines at given site. Also, 
+                updates global slice attributes.  Should only be run after 
+                setting up the site with '--syncsite'
+
+        ./apply.py --syncsite all
+                Syncs all sites. Verifies existing sites & slices, creates
+                sites that do not exist.  This will take a very long time
+                due to the delays for every RPC call to the PLC api.
 
         ./apply.py --syncsite nuq01 --on mlab4.nuq01.measurement-lab.org
                 Resync the node configuration for given hostname.
 
-        ./apply.py --syncslice all
-                Associates *all* slices with all machines and updates any 
-                pending slice attributes.  Sites and slices should be 
-                defined in sites.py & slices.py
-                
         ./apply.py --syncslice ooni_probe --skipwhitelist
                 Like "--syncslice all" except only applied to the given
-                slicename.
+                slicename.  --skipwhitelist assumes that the slice was
+                previously whitelisted, so doing it again is unnecessary.
 
         ./apply.py --syncslice ooni_probe --on mlab4.nuq01.measurement-lab.org
                 Performs the --syncslice operations, but only on the given
                 target machine.  This is useful for applying IPv6 address
                 updates (or other slice attributes) to only a few machines, 
-                instead of all of them.  Some slice attributes may be applied
-                globally, despite "--on <hostname>".
+                instead of all of them.  Global slice attributes will also be 
+                applied, despite "--on <hostname>".
 
                 In this example, ooni_probe must be explicitly permitted to
                 receive an ipv6 on mlab4.nuq01 in slices.py. 
@@ -81,6 +73,10 @@ def main():
 
     parser.set_defaults(syncsite=None, syncslice=None,
                         ondest=None, skipwhitelist=False, 
+                        sitesname="sites",
+                        slicesname="slices",
+                        sitelist="site_list",
+                        slicelist="slice_list",
                         skipsliceips=False, skipinterfaces=False,
                         url=session.API_URL, debug=False, verbose=False, )
 
@@ -111,11 +107,25 @@ def main():
                 help=("dont try to create new Interfaces or update existing "+
                       "Interfaces. This permits IPv6 maniuplation without "+
                       "changing legacy IPv4 configuration in DB.") )
+
+    parser.add_option("", "--sitesname", metavar="sites", dest="sitesname", 
+                help="The name of the module with Site() definitions")
+    parser.add_option("", "--slicesname", metavar="slices", dest="slicesname", 
+                help="The name of the module with Slice() definitions")
+
+    parser.add_option("", "--sitelist", metavar="site_list", dest="sitelist", 
+                help="The site list variable name.")
+    parser.add_option("", "--slicelist", metavar="slice_list", dest="slicelist", 
+                help="The slice list variable name.")
+
     (options, args) = parser.parse_args()
     if len(sys.argv) == 1:
         usage()
         parser.print_help()
         sys.exit(1)
+
+    site_list =  getattr(__import__(options.sitesname), options.sitelist)
+    slice_list =  getattr(__import__(options.slicesname), options.slicelist)
 
     print "setup plc session"
     session.setup_global_session(options.url, options.debug, options.verbose)
