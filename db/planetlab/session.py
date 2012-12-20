@@ -68,9 +68,45 @@ def refreshsession():
         os.makedirs(SESSION_DIR)
     except:
         pass
+    session_map = parse_sessions(SESSION_FILE, fail_on_open=False)
+    session_map[API_URL] = session
+    write_sessions(SESSION_FILE, session_map)
+    #f = open(SESSION_FILE, 'w')
+    #print >>f, session
+    #f.close()
+
+def write_sessions(session_file, session_map):
     f = open(SESSION_FILE, 'w')
-    print >>f, session
+    for url in session_map.keys():
+        print >>f, url, session_map[url]
     f.close()
+
+def parse_sessions(session_file, fail_on_open=True):
+    try:
+        session_lines = open(SESSION_FILE, 'r').readlines()
+    except:
+        if fail_on_open: 
+            # throw the error for someone else to catch
+            raise
+        else: 
+            # return an empty map
+            return {}
+
+    session_map = {}
+    for line in session_lines:
+        f = line.strip().split()
+        if len(f) == 0:
+            continue
+        elif len(f) == 1:
+            print "old format session file: remove %s and rerun" % SESSION_FILE
+            sys.exit(1)
+        elif len(f) > 2:
+            print "too many fields in session line"
+            sys.exit(1)
+        else:
+            (url, session) = f
+            session_map[url] = session
+    return session_map
 
 def getapi(debug=False, verbose=False):
     global api
@@ -81,7 +117,9 @@ def getapi(debug=False, verbose=False):
         try:
             auth = {}
             auth['AuthMethod'] = 'session'
-            auth['session'] = open(SESSION_FILE, 'r').read().strip()
+            session_map = parse_sessions(SESSION_FILE)
+            #print session_map
+            auth['session'] = session_map[API_URL]
             authorized = api.AuthCheck(auth)
             if not authorized:
                 print "Need to refresh your PLC session file: %s" % SESSION_FILE
