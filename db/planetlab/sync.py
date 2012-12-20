@@ -2,6 +2,7 @@
 import session as s
 import sys
 import pprint
+import time
 
 def MakeSite(loginbase,name,abbreviated_name, 
                        url="http://www.measurementlab.net/"):
@@ -19,10 +20,12 @@ def MakeSite(loginbase,name,abbreviated_name,
     return site
 
 def MakePerson(first_name, last_name, email):
-    persons = s.api.GetPersons({"email":email,"enabled":True},["site_ids","email","person_id"])
+    persons = s.api.GetPersons({"email":email,"enabled":True},
+                               ["site_ids","email","person_id"])
     if len(persons)==0:
         print "Adding person %s" % email
-        fields = {"first_name":first_name, "last_name":last_name, "email":email, "password":"clara_abcdefg"}
+        fields = {"first_name":first_name, "last_name":last_name, 
+                  "email":email, "password":"clara_abcdefg"}
         personid = s.api.AddPerson(fields)
         s.api.UpdatePerson(personid, {'enabled': True})
     elif len(persons)==1:
@@ -34,16 +37,19 @@ def MakePerson(first_name, last_name, email):
 def AddPersonToSite(email,personid,role,loginbase):
     site = s.api.GetSites({"login_base":loginbase})
     if len(site) != 1:
-        print "WARNING: problem with getting site info for loginbase=%s" % loginbase
+        print ("WARNING: problem with getting site info for loginbase=%s" % 
+                loginbase)
     else:
         site = site[0]
         siteid = site["site_id"]
         if personid not in site['person_ids']:
-            print "Added %s (%d) to site %d (%s)" % ( email, personid, siteid, loginbase)
+            print ("Added %s (%d) to site %d (%s)" % 
+                    (email, personid, siteid, loginbase))
             s.api.AddPersonToSite(personid,siteid)
             s.api.AddRoleToPerson(role,personid)
         else:
-            print "Confirmed %s (%d) is %s for site %s" % ( email, personid, role, loginbase)
+            print ("Confirmed %s (%d) is %s for site %s" % 
+                    (email, personid, role, loginbase))
 
 def MakeNode(login_base, hostname):
     node_list = s.api.GetNodes(hostname)
@@ -65,49 +71,37 @@ def MakePCU(login_base, node_id, pcu_fields):
         s.api.AddNodeToPCU(node_id, pcu_id, 1)
     else:
         if node_id in pcu_list[0]['node_ids']:
-            print "Confirmed PCU %s is associated with node %d" % (pcu_list[0]['hostname'], node_id)
+            print ("Confirmed PCU %s is associated with node %d" % 
+                    (pcu_list[0]['hostname'], node_id))
             pcu_id = pcu_list[0]['pcu_id']
         else:
             print "ERROR: need to add pcu node_id %s" % node_id
+            sys.exit(1)
     return pcu_id
 
 def PutNodeInNodegroup(hostname, node_id, nodegroup_name):
     node_list = s.api.GetNodes(node_id, ['nodegroup_ids', 'node_tag_ids'])
-    nodegroup_list = s.api.GetNodeGroups({'groupname' : nodegroup_name}, ['nodegroup_id'])
+    nodegroup_list = s.api.GetNodeGroups({'groupname' : nodegroup_name}, 
+                                         ['nodegroup_id'])
     if len(nodegroup_list) > 0 and len(node_list) > 0:
         # NB: both are in the DB.
         # if node not in nodegroup then add it
-        if nodegroup_list[0]['nodegroup_id'] not in node_list[0]['nodegroup_ids']:
+        if (nodegroup_list[0]['nodegroup_id'] not in 
+            node_list[0]['nodegroup_ids']):
             print "ADDING: %s to nodegroup %s" % (hostname, nodegroup_name)
             s.api.AddNodeTag(hostname, 'deployment', nodegroup_name)
         else:
-            print "Confirmed: %s is in nodegroup %s"  % (hostname, nodegroup_name)
+            print ("Confirmed: %s is in nodegroup %s" %
+                    (hostname, nodegroup_name))
     else:
-        print "ERROR: could not find node_id or nodegroup %s,%s" % (node_id, nodegroup_name)
+        print ("ERROR: could not find node_id or nodegroup %s,%s" %
+                (node_id, nodegroup_name))
         sys.exit(1)
-
-        #node_tags = node_list[0]['node_tag_ids'] 
-        #db_tags = []
-        #for t in api.GetNodeTags(node_tags):
-        #    db_tags.append( (t['tagname'], t['value'], t['node_tag_id']) )
-        #    tags = sitevals['nodetags']
-        #
-        #     ok_tags = []
-        #
-        #     for (n,v,id) in db_tags:
-        #        if (n,v) not in tags:
-        #            api.DeleteNodeTag(id)
-        #        else:
-        #            ok_tags.append((n,v))
-        #
-        #     for (n,v) in tags:
-        #        if (n,v) not in ok_tags:
-        #            api.AddNodeTag(host, n, v)
 
 def setTagTypeId(tagname, tags):
     tagtype_list = s.api.GetTagTypes({"tagname":tagname})
     if len(tagtype_list)==0:
-        print "BUG: %s TagType does not exist.  Need to update MyPLC" % tagname
+        print "BUG: %s TagType does not exist. Need to update MyPLC" % tagname
         sys.exit(1)
     else:
         assert(len(tagtype_list)==1)
@@ -133,11 +127,14 @@ def MakeInterfaceTags(node_id, interface, tagvalues):
     """
     filter_dict = { "node_id" : node_id, 'ip' : interface['ip'] }
     interface_found = s.api.GetInterfaces(filter_dict)
-    current_tags = s.api.GetInterfaceTags(interface_found[0]['interface_tag_ids'])
+    interface_tag_ids_found = interface_found[0]['interface_tag_ids']
+    current_tags = s.api.GetInterfaceTags(interface_tag_ids_found)
 
     new_tags = {}
     for tagname in tagvalues.keys():
-        new_tags[tagname] = { "tag_type_id":None, "current_tag":None, "value": tagvalues[tagname] }
+        new_tags[tagname] = { "tag_type_id":None, 
+                              "current_tag":None, 
+                              "value": tagvalues[tagname] }
 
         for current_tag in current_tags:
             name = current_tag['tagname']
@@ -149,7 +146,8 @@ def MakeInterfaceTags(node_id, interface, tagvalues):
 
     for tagname,tag in new_tags.iteritems():
         if tag['current_tag'] is None:
-            print "ADD: tag %s->%s for %s" % (tagname,tag['value'],interface['ip'])
+            print ("ADD: tag %s->%s for %s" %
+                    (tagname,tag['value'],interface['ip']))
             interface_id = interface_found[0]['interface_id']
             type_id = tag['tag_type_id']
             tag_id = s.api.AddInterfaceTag(interface_id,type_id,tag['value'])
@@ -161,12 +159,16 @@ def MakeInterfaceTags(node_id, interface, tagvalues):
             # current_tag is present on Interface already
             # check to see if it's 
             current_tag = tag['current_tag']
-            if tag['value'] != current_tag['value'] and tagname not in [ 'alias' ]:
-                print "UPDATE: tag %s from %s->%s for %s" % (tagname,current_tag['value'],tag['value'],interface['ip'])
+            if (tag['value'] != current_tag['value'] and 
+                tagname not in [ 'alias' ]):
+                print ("UPDATE: tag %s from %s->%s for %s" %
+                        (tagname,current_tag['value'],tag['value'],
+                         interface['ip']))
                 tag_id = current_tag['interface_tag_id']
                 s.api.UpdateInterfaceTag(tag_id,tag['value'])
             else:
-                print "Confirmed: tag %s = %s for %s" % (tagname, tag['value'], interface['ip'])
+                print ("Confirmed: tag %s = %s for %s" %
+                        (tagname, tag['value'], interface['ip']))
 
 def InterfacesAreDifferent(declared, found):
     """ return True if the two dicts are different """
@@ -185,11 +187,14 @@ def InterfacesAreDifferent(declared, found):
 
 def MakeInterface(hostname, node_id, interface, is_primary):
     primary_declared = interface
-    filter_dict = {"node_id" : node_id, "is_primary" : is_primary, 'ip' : interface['ip']}
+    filter_dict = {"node_id" : node_id, 
+                   "is_primary" : is_primary, 
+                   "ip" : interface['ip']}
     interface_found = s.api.GetInterfaces(filter_dict)
 
     if len(interface_found) == 0:
-        print "Adding: node network %s to %s" % (primary_declared['ip'], hostname)
+        print ("Adding: node network %s to %s" %
+                (primary_declared['ip'], hostname))
         i_id = s.api.AddInterface(node_id, primary_declared)
     else:
         # TODO: clear any interface settings from primary interface
@@ -203,9 +208,11 @@ def MakeInterface(hostname, node_id, interface, is_primary):
                 pprint.pprint( interface_found[0] )
                 print "Updating: node network for %s to %s" % (
                             hostname, primary_declared)
-                s.api.UpdateInterface(interface_found[0]['interface_id'], primary_declared)
+                s.api.UpdateInterface(interface_found[0]['interface_id'], 
+                                      primary_declared)
         else:
-            print "Confirmed: node network setup for %s for %s" % (hostname, interface['ip'])
+            print ("Confirmed: node network setup for %s for %s" %
+                    (hostname, interface['ip']))
         i_id = interface_found[0]['interface_id']
 
     # NOTE: everything that follows is only for non-primary interfaces.
@@ -262,7 +269,8 @@ def MakeSliceAttribute(slicename, attr):
                 # NOTE: these keys can have multiples with different values.
                 #       So, do not perform updates.
                 if len(attrsfound) == 0:
-                    print "ADDING   : %s -> (%s->%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                    print ("ADDING   : %s -> (%s->%s,%s,%s)" %
+                            (slicename, k, attr[k], nd, ng))
                     if nd is None and ng is None: 
                         s.api.AddSliceTag(slicename, k, attr[k])
                     else:
@@ -273,15 +281,18 @@ def MakeSliceAttribute(slicename, attr):
                         if ( af['node_id'] == nd_id and 
                              af['nodegroup_id'] == ng_id ):
                             if af['value'] == attr[k]:
-                                print "Confirmed: %s -> (%s,%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                                print ("Confirmed: %s -> (%s,%s,%s,%s)" %
+                                        (slicename, k, attr[k], nd, ng))
                                 confirmed=True
                     if not confirmed:
                         print "Found attr value but maybe in wrong NG/Node?"
                         print "?SHOULD I UPDATE THIS? %s with %s" % (af, attr)
             else:
-                # NOTE: these keys should only have a single value for the given key
+                # NOTE: these keys should only have a single value for the 
+                #       given key, so do perform updates.
                 if len(sliceattrs) == 0:
-                    print "ADDING   : %s -> (%s->%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                    print ("ADDING   : %s -> (%s->%s,%s,%s)" %
+                            (slicename, k, attr[k], nd, ng))
                     if nd is None and ng is None: 
                         s.api.AddSliceTag(slicename, k, attr[k])
                     elif ng is None:
@@ -293,25 +304,50 @@ def MakeSliceAttribute(slicename, attr):
                     if ( sliceattrs[0]['node_id'] == nd_id and 
                          sliceattrs[0]['nodegroup_id'] == ng_id ):
                         if sliceattrs[0]['value'] == attr[k]:
-                            print "Confirmed: %s -> (%s,%s,%s,%s)" % (slicename, k, attr[k], nd, ng)
+                            print ("Confirmed: %s -> (%s,%s,%s,%s)" %
+                                    (slicename, k, attr[k], nd, ng))
                         else:
-                            print "UPDATING : %s -> (%s,%s,%s) from '%s' to '%s'" % (slicename, k, nd, ng, sliceattrs[0]['value'], attr[k])
-                            s.api.UpdateSliceTag(sliceattrs[0]['slice_tag_id'], attr[k])
+                            print ("UPDATING : %s -> (%s,%s,%s)" % 
+                                    (slicename, k, nd, ng)) 
+                            print ("         : from '%s' to '%s'" %
+                                    (sliceattrs[0]['value'], attr[k]))
+                            s.api.UpdateSliceTag(sliceattrs[0]['slice_tag_id'],
+                                                 attr[k])
                     else:
-                        print "Uh-oh: slice tag %s->%s on %s missing ng_id:%s or nd_id:%s" % (
-                                    k, attr[k], slicename, ng_id, nd_id)
+                        print ("Uh-oh: slice tag %s->%s on %s" %
+                                (k, attr[k], slicename))
+                        print ("        missing ng_id:%s or nd_id:%s" %
+                                (ng_id, nd_id))
                 else:
                     # NOTE: this gets more complicated.
-                    print "ERR: There are multiple SliceTags that match: %s" % tag_filter
+                    print "ERROR: multiple SliceTags match: %s" % tag_filter
                     for x in sliceattrs:
                         print x
                     sys.exit(1)
 
-    #assigned = filter(lambda attr: attr['node_id'] == node['node_id'], sliceattrs)
+    #assigned = filter(lambda attr: attr['node_id'] == node['node_id'], 
+    #                  sliceattrs)
     #if len(assigned) != 0:
-    #    print "Deleting: slice tag ip_addresses from %s on %s" % (slicename, node['hostname'])
+    #    print ("Deleting: slice tag ip_addresses from %s on %s" %
+    #            (slicename, node['hostname']))
     #    api.DeleteSliceTag(assigned[0]['slice_tag_id'])
     #api.AddSliceTag(slicename, 'ip_addresses', nnet['ip'], node['node_id'])
+
+EXPIRE_DELTA_90DAYS = (90*60*60*24)
+EXPIRE_DELTA_20YEARS = (20*365*60*60*24)
+
+def SyncSliceExpiration(slicename):
+    slices = s.api.GetSlices(slicename)
+    if len(slices) != 1:
+        print "ERROR: GetSlices returned %s results" % len(slices)
+        print "       GetSlices('%s') should only return 1 result" % slicename
+        sys.exit(1)
+    sslice = slices[0]
+    current_time = int(time.time())
+    if sslice['expires'] < current_time + EXPIRE_DELTA_90DAYS:
+        print "Updating slice %s expiration to 20 years from now" % slicename
+        attr = {'expires' : current_time + EXPIRE_DELTA_20YEARS}
+        s.api.UpdateSlice(slicename, attr)
 
 def WhitelistSliceOnNode(slicename, hostname):
     """
@@ -335,17 +371,21 @@ def WhitelistSliceOnNode(slicename, hostname):
 
             if sslice['slice_id'] not in slice_ids_on_node_whitelist:
                 # then this slice is not on this node's whitelist
-                print "Adding %s to whitelist on host: %s" % (sslice['name'], node['hostname'])
-                s.api.AddSliceToNodesWhitelist(sslice['slice_id'],[node['hostname']])
+                print ("Adding %s to whitelist on host: %s" %
+                        (sslice['name'], node['hostname']))
+                s.api.AddSliceToNodesWhitelist(sslice['slice_id'],
+                                               [node['hostname']])
             else:
-                print "Confirmed: %s is whitelisted on %s" % (sslice['name'], node['hostname'])
+                print ("Confirmed: %s is whitelisted on %s" %
+                        (sslice['name'], node['hostname']))
 
             if sslice['slice_id'] not in slice_ids_on_node:
-                print "Adding %s to hosts: %s" % (sslice['name'], node['hostname'])
+                print ("Adding %s to hosts: %s" %
+                        (sslice['name'], node['hostname']))
                 s.api.AddSliceToNodes(sslice['slice_id'],[node['hostname']])
             else:
-                print "Confirmed: %s is assigned to %s" % (sslice['name'], node['hostname'])
+                print ("Confirmed: %s is assigned to %s" %
+                        (sslice['name'], node['hostname']))
             
-
     # NOTE: this approach does not delete stray slices from whitelist
     return
