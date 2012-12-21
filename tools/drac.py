@@ -4,18 +4,26 @@ import sys
 import os
 import subprocess
 import time
+import getpass
 
 DEBUG=False
+VERBOSE=False
+cookies = "--insecure --cookie-jar .cookies.txt --cookie .cookies.txt"
 
 def system(cmd):
-    ## NOTE: use this rather than os.system() to catch 
+    ## NOTE: use this rather than os.system() to catch
     ##       KeyboardInterrupt correctly.
-    if DEBUG: print cmd
+    if DEBUG:
+        print cmd
+        # simulate success without running the command.
+        return 0
+    if VERBOSE:
+        print cmd
     return subprocess.call(cmd, stdout=sys.stdout, 
                            stderr=sys.stderr, shell=True)
 
 def usage():
-    print """
+    return """
     usage:
         All commands take a host specification.  A host spec is a FQHN, or a
         shorter pattern.  For example, "mlab1.nuq01", or "mlab1d.nuq01"
@@ -74,8 +82,56 @@ def usage():
             database.  Then, this command will log into the DRAC interface 
             and reset the password there.  Finally, it will update PLC's PCU 
             entry.
-"""
-    sys.exit(1)
+    """
+
+def parse_options():
+
+    from optparse import OptionParser
+    parser = OptionParser(usage=usage())
+
+    parser.set_defaults(promptpassword=False,
+                        user="admin",
+                        verbose=False,
+                        debug=False)
+
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
+                        help="Verbose mode: print extra details.")
+
+    parser.add_option("-n", "--dryrun", dest="debug", action="store_true",
+                        help="Debug mode: perform no updates.")
+
+    parser.add_option("-u", "--user", dest="user",
+                        metavar="admin",
+                        help=("The DRAC username. Should be used with '-p'"))
+    parser.add_option("-p", "--promptpassword", dest="promptpassword",
+                        action="store_true",
+                        help=("Prompt for DRAC password rather than querying "+
+                              "PLC.  This is useful if you do not have a PLC "+
+                              "account"))
+
+    (options, args) = parser.parse_args()
+
+    if len(args) == 0:
+        parser.print_help()
+        sys.exit(1)
+
+    command   = "list"
+    host_spec = None
+    newpasswd = None
+
+    if len(args) == 1:
+        host_spec = args[0]
+
+    elif len(args) == 2:
+        command = args[0]
+        host_spec = args[1]
+
+    elif len(args) == 3:
+        command = args[0]
+        host_spec = args[1]
+        newpasswd = args[2]
+
+    return (command, host_spec, newpasswd, options, args)
 
 def hspec_to_pcu(host_spec):
     f = host_spec.split(".")
@@ -97,90 +153,7 @@ def hspec_to_pcu(host_spec):
         return host_spec
     return None
 
-def hspec_to_node(host_spec):
-    f = host_spec.split(".")
-    suffix = "measurement-lab.org"
-
-    if len(f) == 2: ## short form.
-        if f[0][-1] == 'd':  ## already a pcu name.
-            return "%s.%s." % (f[0][:-1],f[1]) + suffix
-        else:
-            return host_spec + "." + suffix
-
-    elif len(f) == 4: ## long form
-        if f[0][-1] == 'd':   ## already a pcu name.
-            f[0] = f[0][:-1]
-            return ".".join(f)
-        else:
-            return host_spec
-    else:
-        return host_spec
-    return None
-
-
-option="list"
-if len(sys.argv) == 1:
-    usage()
-
-elif len(sys.argv) == 2:
-    if sys.argv[1] in ["help", "-h", "--help"]:
-        usage()
-    host_spec = sys.argv[1]
-
-elif len(sys.argv) == 3:
-    option = sys.argv[1]
-    host_spec = sys.argv[2]
-
-elif len(sys.argv) == 4:
-    option = sys.argv[1]
-    host_spec = sys.argv[2]
-    newpasswd = sys.argv[3]
-
-## NOTE: Make sure the session is setup correctly.
-## Use os.system() b/c the custom system() function
-## doesn't flush stdout correctly. :-/
-print "Verifying PLC Session...\n"
-os.system("./plcquery.py --action=checksession")
-
-if option == "shell":
-    pcuname = hspec_to_pcu(host_spec)
-    cmd=("./plcquery.py --action=get --type pcu --filter hostname=%s "+
-         "--fields hostname,username,password,model") % pcuname
-    h_u_pw_model=os.popen(cmd, 'r').read().strip().split()
-    hostname = h_u_pw_model[0]
-    user     = h_u_pw_model[1]
-    passwd   = h_u_pw_model[2]
-    model    = h_u_pw_model[3]
-
-    print "Login can be slow. When you receive a prompt, try typing"
-    print " 'help' or 'racadm help' for a list of available commands."
-    print " 'exit' will exit the shell and 'drac.py' script.\n"
-
-    system("expect exp/SHELL.exp %s %s '%s'" % (hostname, user, passwd) )
-
-elif option == "console6":
-    pcuname = hspec_to_pcu(host_spec)
-    cmd=("./plcquery.py --action=get --type pcu --filter hostname=%s "+
-         "--fields hostname,username,password,model") % pcuname
-    h_u_pw_model=os.popen(cmd, 'r').read().strip().split()
-    hostname = h_u_pw_model[0]
-    user     = h_u_pw_model[1]
-    passwd   = h_u_pw_model[2]
-    model    = h_u_pw_model[3]
-
-    if model != "DRAC":
-        print ("This model PCU (%s) is not supported for automatic "+
-               "console loading.") %model
-        sys.exit(1)
-
-    print "Virtual Console depends on correct setup of JavaWebStart..."
-
-    def sendLoginRequest(username, passwd):
-        url = 'data/login'
-        postData = ('user=' + escapeStr(username) + 
-                    '&password=' + escapeStr(passwd))
-        return postData
-
+def drac_formatLoginRequest(username, passwd):
     def escapeStr(val):
         escstr=""
         val = val.replace("\\", "\\\\")
@@ -192,20 +165,78 @@ elif option == "console6":
             else:
                 escstr+=tmp[i]
         return escstr
+    postData = ('user=' + escapeStr(username) +
+                '&password=' + escapeStr(passwd))
+    return postData
 
+def drac_getLoginURL(console):
+    if console == "console5":
+        login_url = "cgi-bin/webcgi/login"
+    elif console == "console6":
+        login_url = "data/login"
+    else:
+        print "unknown console type: %s" % console
+        sys.exit(1)
+    return login_url
+
+def drac_login(login_url, postData, hostname, output):
+    ret = run_curl(hostname, login_url,
+                   output, "-d '%s'" % postData)
+    return ret
+
+def run_curl(hostname, url, output, extra_args=""):
+    cmd_fmt = "curl -D /tmp/out.headers %s -s %s -o %s 'https://%s/%s'"
+    ret = system(cmd_fmt % (extra_args, cookies, output, hostname, url))
+    if ret != 0:
+        return False
+
+    if DEBUG:
+        # if DEBUG is true, out.headers will not exist, and it doesn't matter
+        return True
+
+    headers = open("/tmp/out.headers", 'r').read().strip()
+    if VERBOSE:
+        print headers
+
+    if "200 OK" in headers or "302 Found" in headers:
+        return True
+
+    return False
+
+def drac_downloadConsoleJNLP(console, user, passwd, hostname, jnlp_output):
     date_s=int((time.time())*1000)
-    postData = sendLoginRequest(user, passwd)
-    print "Logging in.."
-    cookies = "--insecure --cookie-jar .cookies.txt --cookie .cookies.txt" 
-    system("curl -s %s -d '%s' https://%s/data/login > /tmp/out.login" % 
-            (cookies, postData, hostname))
-    if DEBUG: system("cat /tmp/out.login"); time.sleep(10)
-    cmd = ("sed -e 's/.*forwardUrl>index.html\\(.*\\)<\\/forwardUrl.*/\\1/g'"+
-           " /tmp/out.login | tr '?' ' '")
-    token = os.popen(cmd, 'r').read().strip()
-    print "Getting *.jnlp for Java Web Start."
+    postData = drac_formatLoginRequest(user, passwd)
+    login_url = drac_getLoginURL(console)
 
-    ## NOTE: handle the variations on a theme.
+    login_output = "/tmp/out.login"
+
+    print "Logging in.."
+    login_ok = drac_login(login_url, postData, hostname, login_output)
+    if not login_ok:
+        print "Failed to login to %s" % hostname
+        return False
+
+    if VERBOSE: system("cat "+login_output); time.sleep(10)
+    print "Getting *.jnlp for Java Web Start."
+    if console == "console5":
+        return drac5_downloadConsoleJNLP(hostname, date_s, jnlp_output)
+    elif console == "console6":
+        return drac6_downloadConsoleJNLP(hostname, date_s,
+                                         login_output, jnlp_output)
+    else:
+        raise Exception("Unrecognized console type: %s" % console)
+
+def drac6_downloadConsoleJNLP(hostname, date_s, login_output, jnlp_output):
+    cmd = (r"sed -e "+
+           r"'s/.*forwardUrl>index.html\(.*\)<\/forwardUrl.*/\1/g'"+
+           r" " + login_output + r" | tr '?' ' '")
+    if DEBUG:
+        print cmd
+        token = "faketoken"
+    else:
+        token = os.popen(cmd, 'r').read().strip()
+
+    ## NOTE: handle the many variations on a theme.
     if "ath01" in hostname or "syd01" in hostname:
         url = "viewer.jnlp(%s@0@%s)" % (hostname, date_s)
     elif len(token) > 10:
@@ -213,162 +244,204 @@ elif option == "console6":
     else:
         url = "viewer.jnlp(%s@0@title@%s)" % (hostname, date_s)
 
-    system("curl -s %s 'https://%s/%s' > /tmp/out.jnlp" % 
-             (cookies, hostname, url))
-    if DEBUG: system("cat /tmp/out.jnlp")
-    print "Loading JavaWebStart."
-    system("javaws /tmp/out.jnlp")
+    ret = run_curl(hostname, url, jnlp_output)
+    if VERBOSE: system("cat "+ jnlp_output)
+    return ret
 
-elif option == "console5":
-    pcuname = hspec_to_pcu(host_spec)
-    cmd=("./plcquery.py --action=get --type pcu --filter hostname=%s "+
-         "--fields hostname,username,password,model") % pcuname
-    h_u_pw_model=os.popen(cmd, 'r').read().strip().split()
-    hostname = h_u_pw_model[0]
-    user     = h_u_pw_model[1]
-    passwd   = h_u_pw_model[2]
-    model    = h_u_pw_model[3]
+def drac5_downloadConsoleJNLP(hostname, date_s, jnlp_output):
 
-    if model != "DRAC":
-        print ("This model PCU (%s) is not supported for automatic "+
-               "console loading.") % model
-        sys.exit(1)
-
-    print "Virtual Console depends on correct setup of JavaWebStart..."
-
-    def sendLoginRequest(username, passwd):
-        postData = ('user=' + escapeStr(username) + 
-                    '&password=' + escapeStr(passwd))
-        return postData
-
-    def escapeStr(val):
-        escstr=""
-        val = val.replace("\\", "\\\\")
-        tmp = [ i for i in val ]
-        for i in range(0,len(val)):
-            if tmp[i] in ['@','(',')',',',':','?','=','&','#','+','%']:
-                dec = ord(tmp[i])
-                escstr+= "@0"+ "%02x" % dec
-            else:
-                escstr+=tmp[i]
-        return escstr
-
-    date_s=int((time.time())*1000)
-    cookies = "--insecure --cookie-jar .cookies.txt --cookie .cookies.txt"
-
-    login_url = "cgi-bin/webcgi/login"
-    postData = sendLoginRequest(user, passwd)
-
-    print "Logging in.."
-    system("curl -s %s -d '%s' 'https://%s/%s' > /tmp/out.login" % 
-            (cookies, postData, hostname, login_url))
-
-    session_url="cgi-bin/webcgi/vkvm?state=1"
     print "Getting Virtual Console SessionID.."
-    system("curl -s %s 'https://%s/%s' > /tmp/tmp.out" % 
-            (cookies, hostname, session_url))
+    session_url="cgi-bin/webcgi/vkvm?state=1"
+    session_ok = run_curl(hostname, session_url, "/tmp/tmp.out")
+    if not session_ok: return session_ok
+
     cmd = ("cat /tmp/tmp.out | grep vKvmSessionId |"+
            " tr '<>' ' ' | awk '{print $5}' ")
-    kvmSessionId = os.popen(cmd).read().strip()
+    if DEBUG:
+        print cmd
+        kvmSessionId = "fakeSessionID"
+    else:
+        kvmSessionId = os.popen(cmd).read().strip()
 
-    print "Getting *.jnlp for Java Web Start."
     jnlp_url="vkvm/%s.jnlp" % kvmSessionId
-    system("curl -s %s 'https://%s/%s' > /tmp/out.jnlp" % 
-            (cookies, hostname, jnlp_url))
+    jnlp_ok = run_curl(hostname, jnlp_url, jnlp_output)
 
-    ret = system("grep 'was not found on this server' /tmp/out.jnlp >/dev/null")
-    if ret == 0:
-        print "Second attempt..."
+    # NOTE: <sessionid>.jnlp is not always valid, so try the second variation
+    cmd = "grep 'was not found on this server' "+jnlp_output+" >/dev/null"
+    not_found = system(cmd)
+    if not_found == 0:
+        print jnlp_ok, "Second attempt..."
         jnlp_url="cgi-bin/webcgi/vkvmjnlp?id=%s" % date_s
-        system("curl -s %s 'https://%s/%s' > /tmp/out.jnlp" % 
-                (cookies, hostname, jnlp_url))
+        jnlp_ok = run_curl(hostname, jnlp_url, jnlp_output)
 
-    print "Loading JavaWebStart."
-    system("javaws /tmp/out.jnlp")
+    if VERBOSE: system("cat "+jnlp_output)
+    return jnlp_ok
 
-elif option == "getsysinfo":
+def get_pcu_fields(host_spec, options, return_ip=False):
     pcuname = hspec_to_pcu(host_spec)
-    cmd=("./plcquery.py --action=get --type pcu --filter hostname=%s "+
-         "--fields hostname,username,password,model") % pcuname
-    lines= os.popen(cmd, 'r').readlines()
-    for line in lines:
-        h_u_pw_model= line.strip().split()
-        hostname = h_u_pw_model[0]
-        user     = h_u_pw_model[1]
-        passwd   = h_u_pw_model[2]
-        model    = h_u_pw_model[3]
-        if model == "DRAC":
-            system("expect exp/GETSYSINFO.exp %s %s '%s'" % 
-                    (hostname, user, passwd) )
+    ret = []
+    if options.promptpassword:
+        passwd = getpass.getpass("DRAC passwd: ")
+        ret = [(pcuname, options.user, passwd, "DRAC")]
+    else:
+        cmd=("./plcquery.py --action=get --type pcu --filter hostname=%s "+
+             "--fields hostname,username,password,model,ip") % pcuname
+        if DEBUG: print cmd
+        lines= os.popen(cmd, 'r').readlines()
+        for line in lines:
+            h_u_pw_model= line.strip().split()
+            hostname = h_u_pw_model[0]
+            user     = h_u_pw_model[1]
+            passwd   = h_u_pw_model[2]
+            model    = h_u_pw_model[3]
+            ip       = h_u_pw_model[4]
+            if return_ip:
+                ret.append((hostname, user, passwd, model, ip))
+            else:
+                ret.append((hostname, user, passwd, model))
+    return ret
+
+def main():
+    global DEBUG
+    global VERBOSE
+    (command, host_spec, newpasswd, options, args) = parse_options()
+
+    DEBUG=options.debug
+    VERBOSE=options.verbose
+
+    ## NOTE: Make sure the session is setup correctly.
+    ## Use os.system() b/c the custom system() function
+    ## doesn't flush stdout correctly. :-/
+    if not options.promptpassword:
+        print "Verifying PLC Session...\n"
+        cmd="./plcquery.py --action=checksession"
+        if DEBUG:
+            print cmd
         else:
-            print "%s is an unsupported PCU model" % model
+            os.system(cmd)
 
-elif option == "reboot":
-    nodename = hspec_to_node(host_spec)
-    cmd=("./plcquery.py --action=get --type node --filter hostname=%s "+
-         "--fields pcu_ids") % nodename
-    pcuids=os.popen(cmd, 'r').read().strip().split()
-    for pcuid in pcuids:
-        cmd=("./plcquery.py --action=get --type pcu --filter pcu_id=%s "+
-             "--fields hostname,username,password,model") % pcuid
-        h_u_pw=os.popen(cmd, 'r').read().strip().split()
+    if command == "shell":
+        pcu_fields = get_pcu_fields(host_spec, options)
+        print "Login can be slow. When you receive a prompt, try typing"
+        print " 'help' or 'racadm help' for a list of available commands."
+        print " 'exit' will exit the shell and 'drac.py' script.\n"
+        for hostname,user,passwd,model in pcu_fields:
+            system("expect exp/SHELL.exp %s %s '%s'" % (hostname, user, passwd))
 
-        hostname = h_u_pw[0]
-        user     = h_u_pw[1]
-        passwd   = h_u_pw[2]
-        model    = h_u_pw[3]
-        if model == "DRAC":
+    elif command in ["console6", "console5"]:
+        pcu_fields = get_pcu_fields(host_spec, options)
+        if len(pcu_fields) != 1:
+            print "host spec '%s' did not return a solitary record" % host_spec
+            sys.exit(1)
+
+        (hostname,user,passwd,model) = pcu_fields[0]
+
+        if model != "DRAC":
+            msg = "Automatic console loading is not supported "
+            msg+= "for this model PCU: %s." % model
+            print msg
+            sys.exit(1)
+
+        print "Virtual Console depends on correct setup of JavaWebStart..."
+        jnlp_output = "/tmp/out.jnlp"
+        download_ok = drac_downloadConsoleJNLP(command, user, passwd,
+                                                hostname, jnlp_output)
+        if not download_ok:
+            print "Failed to download JNLP file from %s" % hostname
+            sys.exit(1)
+
+        print "Loading JavaWebStart."
+        system("javaws "+jnlp_output)
+
+    elif command == "getsysinfo":
+        pcu_fields = get_pcu_fields(host_spec, options)
+        if len(pcu_fields) == 0:
+            print "host spec '%s' did not return any records" % host_spec
+            sys.exit(1)
+
+        for hostname,user,passwd,model in pcu_fields:
+            if model != "DRAC":
+                print "%s is an unsupported PCU model" % model
+                continue
+
+            system("expect exp/GETSYSINFO.exp %s %s '%s'" %
+                        (hostname, user, passwd) )
+
+    elif command == "reboot":
+        pcu_fields = get_pcu_fields(host_spec, options)
+        if len(pcu_fields) == 0:
+            print "host spec '%s' did not return any records" % host_spec
+            sys.exit(1)
+
+        for hostname,user,passwd,model in pcu_fields:
+            if model != "DRAC":
+                print "%s is an unsupported PCU model" % model
+                continue
             system("expect exp/REBOOT.exp %s %s '%s'" % 
-                    (hostname, user, passwd) )
-        else:
-            print "%s is an unsupported PCU model" % model
+                        (hostname, user, passwd) )
 
-elif option == "resetpassword":
-    ## NOTE: be extra verbose for password resets, in case something goes
-    ##       wrong, to see where.
+    elif command == "resetpassword":
+        ## NOTE: be extra verbose for password resets, in case something goes
+        ##       wrong, to see where.
+        if options.promptpassword:
+            print "Password resets are not supported without updating PLC db."
+            print "Do not specify password prompt, and try again."
+            sys.exit(1)
 
-    pcuname = hspec_to_pcu(host_spec)
-    cmd=("./plcquery.py --action=get --type pcu --filter hostname=%s "+
-         "--fields hostname,username,password,model") % pcuname
-    print cmd
-    h_u_pw_model=os.popen(cmd, 'r').read().strip().split()
+        pcu_fields = get_pcu_fields(host_spec, options)
+        if len(pcu_fields) != 1:
+            print "host spec '%s' did not return a single record" % host_spec
+            sys.exit(1)
 
-    hostname = h_u_pw_model[0]
-    user     = h_u_pw_model[1]
-    passwd   = h_u_pw_model[2]
-    model    = h_u_pw_model[3]
+        (hostname,user,passwd,model) = pcu_fields[0]
 
-    if model != "DRAC":
-        print "Unsupported PCU model '%s' for password reset." % model
-        sys.exit(1)
+        if model != "DRAC":
+            print "Unsupported PCU model '%s' for password reset." % model
+            sys.exit(1)
 
-    print ("expect exp/RESET_PASSWORD.exp %s %s '%s' '%s'" % 
-            (hostname, user, passwd, newpasswd))
-    ret = system("expect exp/RESET_PASSWORD.exp %s %s '%s' '%s'" % 
-                    (hostname, user, passwd, newpasswd))
-    if ret == 0:
+        cmd = ("expect exp/RESET_PASSWORD.exp %s %s '%s' '%s'" %
+               (hostname, user, passwd, newpasswd))
+        # Always print, even if DEBUG is not on
+        if not DEBUG: print cmd
+        ret = system(cmd)
+
+        if ret != 0:
+            print "An error occurred resetting the password. Stopping"
+            sys.exit(1)
+
+        print "Updating password in PLC database."
         cmd = ("./plcquery.py --action=update --type pcu "+
                "--filter 'hostname=%s' "+
                "--fields 'password=%s'") % (hostname, newpasswd)
-        print cmd
-        system(cmd)
+        # Always print, even if DEBUG is not on
+        if not DEBUG: print cmd
+        ret = system(cmd)
+        if ret != 0:
+            print "Password update may have failed."
+            print ("Before proceeding double check that the password "+
+                   "update was successful.")
+            print "e.g. drac.py %s" % host_spec
+            sys.exit(1)
 
-elif option == "list":
+    elif command == "list":
+        if options.promptpassword:
+            print "Password prompt is not supported for 'list'"
+            sys.exit(1)
 
-    nodename = hspec_to_node(host_spec)
-    cmd=("./plcquery.py --action=get --type node "+
-         "--filter hostname=%s --fields pcu_ids") % nodename
+        pcu_fields = get_pcu_fields(host_spec, options, True)
+        if len(pcu_fields) == 0:
+            print "host spec '%s' did not return any records" % host_spec
+            sys.exit(1)
 
-    pcuids=os.popen(cmd, 'r').read().strip().split()
-    for pcuid in pcuids:
-        cmd=("./plcquery.py --action=get --type pcu "+
-             "--filter pcu_id=%s "+
-             "--fields hostname,ip,username,password") % pcuid
+        for hostname,user,passwd,model,ip in pcu_fields:
+            if model != "DRAC":
+                print "%s is an unsupported PCU model" % model
+                continue
+            print "host:         %s" % hostname[0:5]+hostname[6:]
+            print "pcu hostname: https://%s" % hostname
+            print "pcu IP:       %s" % ip
+            print "pcu username: %s" % user
+            print "pcu password  %s" % passwd
 
-        h_ip_u_p=os.popen(cmd, 'r').read().strip()
-        f = h_ip_u_p.split()
-        print "host:         %s" % nodename
-        print "pcu hostname: https://%s" % f[0]
-        print "pcu IP:       %s" % f[1]
-        print "pcu username: %s" % f[2]
-        print "pcu password  %s" % f[3]
+if __name__ == "__main__":
+    main()
