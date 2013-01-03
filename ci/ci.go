@@ -1,7 +1,7 @@
 package ci
 
 import (
-	//"fmt"
+	"appengine"
 	"net/http"
 )
 
@@ -16,7 +16,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	//}
 
 //	if r.Method == "POST" {
-		r.Header.Write(w);
+		c := appengine.NewContext(r)
+		c.Debugf("Request: %#v", r)
 		// TODO: post to drone.io based on contents
 		//http.Redirect(w, r, redirect_map["libraries"], http.StatusFound)
 //	}
