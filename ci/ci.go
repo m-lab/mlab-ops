@@ -54,7 +54,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			c.Errorf("Unexpected repository path: %s", repository_path)
 			return
 		}
-		repo := repository_path[len(repository_path_prefix):-1]
+		repo := repository_path[len(repository_path_prefix):len(repository_path)-1]
 		var url string
 		var exists bool
 		if url, exists = redirect_map[repo]; !exists {
