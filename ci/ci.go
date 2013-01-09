@@ -2,6 +2,7 @@ package ci
 
 import (
 	"appengine"
+	"appengine/urlfetch"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -70,7 +71,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 		// post to drone.io based on contents
 		c.Infof("Forwarding request to %s", url)
-		resp, err := http.Post(url, repo, nil)
+		client := urlfetch.Client(c)
+		resp, err := client.Post(url, repo, nil)
 		if err != nil {
 			c.Errorf("Error posting: %s", err)
 			fmt.Fprint(w, "Error posting: %s", err)
@@ -81,6 +83,5 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		resp.Body.Close()
 		c.Infof("POST response: %s", body)
 		fmt.Fprint(w, "POST response: %s", body)
-		//http.Redirect(w, r, url, http.StatusFound)
 	}
 }
