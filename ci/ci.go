@@ -3,6 +3,7 @@ package ci
 import (
 	"appengine"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -14,12 +15,14 @@ func init() {
 
 var expected_user_agent string = "Google Code Project Hosting (+http://code.google.com/p/support/wiki/PostCommitWebHooks)"
 var repository_path_prefix string = "https://code.google.com/p/m-lab."
+var drone_io_prefix string = "https://drone.io/dominic-mlab/m-lab."
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		redirect_map := map[string]string {
-			"libraries": "https://drone.io/dominic-mlab/m-lab.libraries?key=BV8KN727SQ1JMEK7DKIGSO97SLBDJL2O",
-			"ns": "https://drone.io/dominic-mlab/m-lab.ns?key=S4MHVE51D5KN5SGK1IOV1TA0SGK21RBF",
+			"libraries": "BV8KN727SQ1JMEK7DKIGSO97SLBDJL2O",
+			"ns":        "S4MHVE51D5KN5SGK1IOV1TA0SGK21RBF",
+			"pipeline":  "6MO0BPE3RKNHJ1EOS3MHE89M71C9JF8M",
 		}
 
 		c := appengine.NewContext(r)
@@ -55,15 +58,29 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		repo := repository_path[len(repository_path_prefix):len(repository_path)-1]
-		var url string
+		var key string
 		var exists bool
-		if url, exists = redirect_map[repo]; !exists {
+		if key, exists = redirect_map[repo]; !exists {
 			c.Warningf("No redirect for repo %s", repo)
 			return
 		}
 
+		c.Infof("Found key %s for repo %s", key, repo)
+		var url string = drone_io_prefix + repo + "?key=" + key
+
 		// post to drone.io based on contents
-		c.Infof("Forwarding request for repo %s to %s", repo, url)
-		http.Redirect(w, r, url, http.StatusFound)
+		c.Infof("Forwarding request to %s", url)
+		resp, err := http.Post(url, repo, nil)
+		if err != nil {
+			c.Errorf("Error posting: %s", err)
+			fmt.Fprint(w, "Error posting: %s", err)
+			return
+		}
+
+		body, _ := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		c.Infof("POST response: %s", body)
+		fmt.Fprint(w, "POST response: %s", body)
+		//http.Redirect(w, r, url, http.StatusFound)
 	}
 }
