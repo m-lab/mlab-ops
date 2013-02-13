@@ -72,6 +72,9 @@ Network.legacy_network_remap = legacy_network_remap
 # name : site prefix, used to generate PL site name, hostnames, etc
 # net  : v4 & v6 network prefixes and definitions.
 
+pi_list = [('Stephen', 'Stuart', 'sstuart@google.com'),
+           ('Stephen', 'Soltesz', 'soltesz@cs.princeton.edu')]
+
 site_list = [
     Site(name='akl01', net=Network(v4='163.7.129.0',     v6='2404:0138:4009::')),
     Site(name='ams01', net=Network(v4='213.244.128.128', v6='2001:4C08:2003:2::')), 
@@ -85,8 +88,10 @@ site_list = [
     Site(name='ham01', net=Network(v4='80.239.142.192',  v6='2001:2030:0000:0019::')), 
     Site(name='hnd01', net=Network(v4='203.178.130.192', v6='2001:200:0:b801::')), 
     Site(name='iad01', net=Network(v4='216.156.197.128', v6='2610:18:111:8001::')), 
+    Site(name='jnb01', net=Network(v4='196.24.45.128',   v6='2001:4200:FFF0:4512::')), 
     Site(name='lax01', net=Network(v4='38.98.51.0',      v6='2001:550:6800::')), 
     Site(name='lba01', net=Network(v4='109.239.110.0',   v6='2a00:1a80:1:8::')), 
+    Site(name='lca01', pi=pi_list, net=Network(v4='82.116.199.0',    v6=None), exclude=[1,2,3]), 
     Site(name='lga01', net=Network(v4='74.63.50.0',      v6='2001:48c8:5:f::')), 
     Site(name='lga02', net=Network(v4='38.106.70.128',   v6='2001:550:1D00:100::')), 
     Site(name='lhr01', net=Network(v4='217.163.1.64',    v6='2001:4C08:2003:3::')), 
@@ -94,6 +99,7 @@ site_list = [
     Site(name='mad01', net=Network(v4='213.200.103.128', v6='2001:0668:001F:0016::')), 
     Site(name='mia01', net=Network(v4='4.71.210.192',    v6='2001:1900:3001:A::')), 
     Site(name='mil01', net=Network(v4='213.200.99.192',  v6='2001:0668:001F:0017::')), 
+    Site(name='nbo01', net=Network(v4='197.136.0.64',    v6='2C0F:FE08:13:64::'), count=3),
     Site(name='nuq01', net=Network(v4='64.9.225.128',    v6='2604:ca00:f000::',  v6gw='2604:ca00:f000::129'), count=4),
     Site(name='nuq02', net=Network(v4='149.20.5.64',     v6='2001:4F8:1:1001::'), count=4),
     Site(name='ord01', net=Network(v4='4.71.251.128',    v6='2001:1900:3001:B::')), 
