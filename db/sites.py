@@ -99,7 +99,7 @@ site_list = [
     Site(name='mad01', net=Network(v4='213.200.103.128', v6='2001:0668:001F:0016::')), 
     Site(name='mia01', net=Network(v4='4.71.210.192',    v6='2001:1900:3001:A::')), 
     Site(name='mil01', net=Network(v4='213.200.99.192',  v6='2001:0668:001F:0017::')), 
-    Site(name='nbo01', net=Network(v4='197.136.0.64',    v6='2C0F:FE08:13:64::'), count=3),
+    Site(name='nbo01', net=Network(v4='197.136.0.64',    v6='2C0F:FE08:10:64::'), count=3),
     Site(name='nuq01', net=Network(v4='64.9.225.128',    v6='2604:ca00:f000::',  v6gw='2604:ca00:f000::129'), count=4),
     Site(name='nuq02', net=Network(v4='149.20.5.64',     v6='2001:4F8:1:1001::'), count=4),
     Site(name='ord01', net=Network(v4='4.71.251.128',    v6='2001:1900:3001:B::')), 
