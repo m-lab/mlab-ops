@@ -21,7 +21,10 @@ slice_list = [
                     Attr('MeasurementLab',    disk_max='10000000'),
                     Attr('MeasurementLabK32', disk_max='10000000'),
                     Attr('MeasurementLabK32', vsys='web100_proc_write'),
-                    Attr('MeasurementLabK32', pldistro='mlab'), ],
+                    Attr('MeasurementLabK32', pldistro='mlab'), 
+                    Attr('MeasurementLabK32XidMask', disk_max='10000000'),
+                    Attr('MeasurementLabK32XidMask', vsys='web100_proc_write'),
+                    ],
                     ipv6="all"),
 
     Slice(name='mpisws_broadband',       index=3, attrs=[
@@ -32,8 +35,8 @@ slice_list = [
                     Attr('MeasurementLabK32', disk_max='35000000'), ],
                     ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
 
-    Slice(name="northwestern_windrider", index=4, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
     Slice(name="uw_geoloc4",             index=5, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
+    Slice(name="mlab_ooni",              index=6, ipv6=['mlab4.nuq02']),
     Slice(name="samknows_ispmon",        index=7, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
     Slice(name="gt_bismark",             index=8, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
     Slice(name="mlab_neubot",            index=9, ipv6="all"),
@@ -47,6 +50,7 @@ slice_list = [
     Slice(name="pl_default"),
     Slice(name="princeton_comon"),
     Slice(name="princeton_slicestat"),
+    Slice(name="mlab_pipeline"),
     Slice(name="mlab_ops", attrs=[
                     Attr(None, vsys='slice_restart'),
                     Attr(None, vsys='slice_recreate'),
