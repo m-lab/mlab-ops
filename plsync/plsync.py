@@ -6,44 +6,44 @@ import sys
 
 def usage():
     return """
-    apply.py takes static configurations stored in sites.py and slices.py
+    plsync.py takes static configurations stored in sites.py and slices.py
         and applies them to the PLC database adding or updating objects, 
         tags, and other values when appropriate.
 
     TODO:
         Implement common operations:
 
-        ./apply.py --syncsite xyz --getbootimages 
+        ./plsync.py --syncsite xyz --getbootimages 
                 This would setup the basic networking, and download boot images.
                 Subsequent calls should assume these are done already.
 
     Examples:
-        ./apply.py --dryrun ....
+        ./plsync.py --dryrun ....
                 Only perform Get* api calls.  Absolutely no changes are made
                 to the PLC DB. HIGHLY recommended before changes.
 
-        ./apply.py --syncsite nuq01
+        ./plsync.py --syncsite nuq01
                 Creates site, nodes, and pcus for the given site name.
 
-        ./apply.py --syncslice all --on nuq01
+        ./plsync.py --syncslice all --on nuq01
                 Associates all slices with machines at given site. Also, 
                 updates global slice attributes.  Should only be run after 
                 setting up the site with '--syncsite'
 
-        ./apply.py --syncsite all
+        ./plsync.py --syncsite all
                 Syncs all sites. Verifies existing sites & slices, creates
                 sites that do not exist.  This will take a very long time
                 due to the delays for every RPC call to the PLC api.
 
-        ./apply.py --syncsite nuq01 --on mlab4.nuq01.measurement-lab.org
+        ./plsync.py --syncsite nuq01 --on mlab4.nuq01.measurement-lab.org
                 Resync the node configuration for given hostname.
 
-        ./apply.py --syncslice ooni_probe --skipwhitelist
+        ./plsync.py --syncslice ooni_probe --skipwhitelist
                 Like "--syncslice all" except only applied to the given
                 slicename.  --skipwhitelist assumes that the slice was
                 previously whitelisted, so doing it again is unnecessary.
 
-        ./apply.py --syncslice ooni_probe --on mlab4.nuq01.measurement-lab.org
+        ./plsync.py --syncslice ooni_probe --on mlab4.nuq01.measurement-lab.org
                 Performs the --syncslice operations, but only on the given
                 target machine.  This is useful for applying IPv6 address
                 updates (or other slice attributes) to only a few machines, 

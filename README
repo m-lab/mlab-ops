@@ -4,3 +4,18 @@ healthy, innovative Internet.
 
 m-lab.ops is a repository for code that is suited to operating the M-Lab
 platform and experiments on M-Lab.
+
+Directories:
+
+ ci -- "continuous integration" a hook for integration testing with drone.io
+
+ plsync -- synchronization scripts and configuration files for 
+           mlab sites & slices
+
+ tools -- command line tools of general use to operators for DRAC management,
+          simple shell-script execution across all machines, and a command-line
+          wrapper for interacting with the plcapi.
+
+ slicebasemanager -- an early version of a work-in-progress for better 
+          slice management.  This will be replaced with a more mature version.
+          Do not use until this message is updated.
