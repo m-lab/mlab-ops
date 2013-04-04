@@ -3,21 +3,126 @@ import session as s
 import sys
 import pprint
 import time
+import base64
+
+def SyncSiteTag(sitename, site_id, tagname, value):
+    """ SyncSiteTag() - either add, confirm, or update the tagname->value
+
+    Args:
+        sitename - string, name of site, used for messages only
+        site_id - int, site id returned from GetSites()
+        tagname - string, name of tag to set
+        value - string, tag value, even numbers should be passed as strings.
+    Returns:
+        site_tag_id on Add*
+        status code on Update* (1 or not-1 for success or failure)
+        None - on Confirm
+    """
+    tags = s.api.GetSiteTags({'site_id' : site_id, 'tagname' : tagname})
+    if len(tags) == 0:
+        print "ADDING: site tag to %s tag(%s->%s)" % (sitename, tagname, value)
+        return s.api.AddSiteTag(site_id, tagname, value)
+    elif len(tags) == 1:
+        tag = tags[0]
+        if tag['value'] == value:
+            print ("Confirmed: site tag on %s tag(%s->%s)" % 
+                   (sitename, tagname, value))
+        else:
+            print ("UPDATE: site tag on %s from tag(%s->%s) to %s" % 
+                   (sitename, tagname, tag['value'], value))
+            return s.api.UpdateSiteTag(tag['site_tag_id'], tagname, value)
+    else:
+        print "Error: SyncSiteTag()"
+        print "Error: This should never happen, but here we are."
+        print "Error: Received multiple tags for tagname(%s)" % tagname
+        print "Error: %s" % tags
+        sys.exit(1)
+
+def SyncLocation(sitename, location):
+    """ SyncLocation - assigns location information to a Site.
+
+        Args:
+            sitename - string, name of site, i.e. 'mlabnuq0t'
+            location - Location() object or None
+        Returns:
+            Nothing
+
+        If myplc does not have these tags set automatically, you can create
+        them using 'plcsh' and running these commands:
+            AddTagType({'tagname' : 'city', 
+                        'description' : 'The city where this site is located', 
+                        'category' : 'site/location'})
+            AddTagType({'tagname' : 'country', 
+                        'description' : 'The country where this site is located', 
+                        'category' : 'site/location'})
+            AddTagType({'tagname' : 'extra', 
+                        'description' : 'Extra context information for a site', 
+                        'category' : 'site/extra'})
+        The commands in this function depend on them existing.
+    """
+    if location is None:
+        # NOTE: nothing to do.
+        return
+
+    # NOTE: AddSiteTag() only recognizes the numeric site_id, :-/
+    sites = s.api.GetSites(sitename, ['site_id', 'latitude', 'longitude'])
+    if len(sites) != 1: 
+        msg = "Error: GetSites(%s) returned: %s sites, expected 1"
+        print msg % (sitename, len(sites))
+        sys.exit(1)
+
+    site_id = sites[0]['site_id']
+    SyncSiteTag(sitename, site_id, 'city', location['city'])
+    SyncSiteTag(sitename, site_id, 'country', location['country'])
+
+    # NOTE: always update latitude/longitude, 
+    update = {}
+    if location['latitude'] != sites[0]['latitude']:
+        update['latitude'] = location['latitude']
+    if location['longitude'] != sites[0]['longitude']:
+        update['longitude'] = location['longitude']
+
+    if len(update) != 0:
+        print ("UPDATE: site lat/long from %s,%s to %s" % 
+                (location['latitude'], location['longitude'], update))
+        UpdateSite(site_id, update)
+
+    if 'extra' in location:
+        SyncSiteTag(sitename, site_id, 'extra', location['extra'])
 
 def MakeSite(loginbase,name,abbreviated_name, 
                        url="http://www.measurementlab.net/"):
+    """
+        MakeSite() - adds or confirms the existence of given site.
+                     updates are not performed.
+
+        Args:
+            loginbase - name of site i.e mlabnuq01
+            name - long presentation name of site. i.e. Measurement Lab NUQ01
+            abbreviated_name - short presentation name of site, i.e. M-Lab NUQ01
+            url - website associated with site.  Used to identify mlab by data
+                    collection pipeline.
+        Returns:
+            site_id
+    """
     site = s.api.GetSites({"login_base":loginbase})
     if len(site) == 0:
         print "MakeSite(%s,%s,%s)"%(loginbase,name,abbreviated_name)
-        s.api.AddSite({"name":name,
+        # NOTE: max_slices defaults to zero
+        site_id = s.api.AddSite({"name":name,
                      "abbreviated_name":abbreviated_name,
                      "login_base": loginbase,
-                     "url" : url})
-        site = s.api.GetSites({"login_base":loginbase})
-    else:
+                     "url" : url, 'max_slices' : 10})
+    elif len(site) == 1:
         print "Confirmed: %s is in DB" % loginbase
+        site_id = site[0]['site_id']
+    else:
+        print "Error: PLCAPI returned two sites for a single name."
+        print "Error: This should never happen, but here we are."
+        print "Error: Double-check sitename(%s) and db" % loginbase
+        sys.exit(1)
 
-    return site
+    return site_id
 
 def MakePerson(first_name, last_name, email):
     persons = s.api.GetPersons({"email":email,"enabled":True},
@@ -79,6 +184,7 @@ def MakePCU(login_base, node_id, pcu_fields):
             sys.exit(1)
     return pcu_id
 
+# TODO: perform nodegroup 'update's here also
 def PutNodeInNodegroup(hostname, node_id, nodegroup_name):
     node_list = s.api.GetNodes(node_id, ['nodegroup_ids', 'node_tag_ids'])
     nodegroup_list = s.api.GetNodeGroups({'groupname' : nodegroup_name}, 
@@ -108,16 +214,16 @@ def setTagTypeId(tagname, tags):
         tags['tag_type_id'] = tagtype_list[0]['tag_type_id']
     return tags
 
-def MakeInterfaceTags(node_id, interface, tagvalues):
+def SyncInterfaceTags(node_id, interface, tagvalues):
     """
-        MakeInterfaceTags -- 
+        SyncInterfaceTags -- 
             arguments: node_id, interface on node, new interface tags 
 
-            MakeInterfaceTags will find interface on the given node.
+            SyncInterfaceTags will find interface on the given node.
 
             Then it will compare the provided tagvalues to the existing tags on
             the interface.  When the provided tags are missing, they are added.
-            When the provided tags are present, the value is verified, and
+            When the provided tags are present, the value is verified, or
             updated when the provided value is different from the stored value.
 
             Additional logic is necessary to lookup tag-types prior to adding
@@ -185,7 +291,21 @@ def InterfacesAreDifferent(declared, found):
             return True
     return False
 
-def MakeInterface(hostname, node_id, interface, is_primary):
+def SyncInterface(hostname, node_id, interface, is_primary):
+    """
+    SyncInterface() -- Adds, updates, or confirms node interface.
+
+    Args:
+        hostname - fqdn of node
+        node_id - node_id from plcdb
+        interface - a dict() defining all fields for a plcdb interface object.
+        is_primary - a boolean indicating whether this interface is the primary
+        interface for the node (assigned to root context) or a supplemental one
+        (assigned to slices).
+
+    Returns:
+        None
+    """
     primary_declared = interface
     filter_dict = {"node_id" : node_id, 
                    "is_primary" : is_primary, 
@@ -221,13 +341,76 @@ def MakeInterface(hostname, node_id, interface, is_primary):
             "alias"  : str(i_id),
             "ifname" : "eth0"
         }
-        MakeInterfaceTags(node_id, interface, goal)
+        SyncInterfaceTags(node_id, interface, goal)
 
-def MakeSliceAttribute(slicename, attr):
-    # example:
-    #{ 'attrtype': 'nodegroup',
-    #  'disk_max': '50000000',
-    #  'nodegroup': 'MeasurementLab' }
+def MakeSlice(slicename):
+    """ MakeSlice() creates the given slicename or confirms that it exists.
+
+        Args:
+            slicename - string, the name of the slice to create i.e. 'iupui_ndt'
+        Returns:
+            slice_id of slicename, int
+    """
+    sl = s.api.GetSlices({'name' : slicename})
+    if len(sl) == 0:
+        slice_id = s.api.AddSlice({'name' : slicename, 
+                    'url' : 'http://www.measurementlab.net', 
+                    'description' : 'Fake description for testing'})
+        print "Adding:    Slice %s:%s" % (slicename, slice_id)
+    elif len(sl) == 1:
+        slice_id = sl[0]['slice_id']
+        print "Confirmed: Slice %s:%s" % (slicename, slice_id)
+    else:
+        print "Error: PLCAPI returned two slices for a single name."
+        print "Error: This should never happen, but here we are."
+        print "Error: Double-check slicename(%s) and db" % slicename
+        sys.exit(1)
+
+    return slice_id
+
+def AddSliceTag(slicename, key, value, node, nodegroup):
+    """ AddSliceTag() calls s.api.AddSliceTag() with the correct set of arguments.
+        Args:
+            slicename - string slicename i.e. "iupui_ndt"
+            key - the slice tag name, i.e. "vsys"
+            value - the value for the slice tag, i.e. "web100_proc_write"
+            node - a single node to assign this tag to, or None.  Single-node
+                    slice tags are used for the 'ip_addresses' slice tag.
+            nodegroup - a single node group to assign this tag to, or None.
+                    Single-group slice tags are used for attributes that are
+                    applicable only in one nodegroup but not others. An example
+                    is M-Lab's nodegroup within Planetlab.
+        Returns:
+            result of s.api.AddSliceTag()
+    """
+    print ("ADDING   : %s -> (%s->%s,%s,%s)" %
+           (slicename, key, value, node, nodegroup))
+    if node is None and nodegroup is None: 
+        return s.api.AddSliceTag(slicename, key, value)
+    elif nodegroup is None:
+        return s.api.AddSliceTag(slicename, key, value, node)
+    else:
+        return s.api.AddSliceTag(slicename, key, value, node, nodegroup)
+
+    # catch-all unreachable.
+    return None
+
+def SyncSliceAttribute(slicename, attr):
+    """ SyncSliceAttribute() assigns the given attributes to the slice.
+        If attributes were not previously added, they are added.
+        If attributes were previously added, their value is verified.
+        If attributes were previously added and changed, their value is updated.
+
+        Only one tag name 'vsys' can have multiple values.
+    Args:
+        slicename - string, name of slice to apply attributes.
+        attr - An Attr() object.
+    Returns:
+        None
+    Raises:
+        Exception() if Attr() object is misformed.
+        exit()s if multiple slice tags are present for a single-tag attribute.
+    """
 
     tag_filter = {'name' : slicename}
     #print slicename, attr
@@ -269,12 +452,7 @@ def MakeSliceAttribute(slicename, attr):
                 # NOTE: these keys can have multiples with different values.
                 #       So, do not perform updates.
                 if len(attrsfound) == 0:
-                    print ("ADDING   : %s -> (%s->%s,%s,%s)" %
-                            (slicename, k, attr[k], nd, ng))
-                    if nd is None and ng is None: 
-                        s.api.AddSliceTag(slicename, k, attr[k])
-                    else:
-                        s.api.AddSliceTag(slicename, k, attr[k], nd, ng)
+                    AddSliceTag(slicename, k, attr[k], nd, ng)
                 elif len(attrsfound) >= 1:
                     confirmed = False
                     for af in attrsfound:
@@ -287,18 +465,12 @@ def MakeSliceAttribute(slicename, attr):
                     if not confirmed:
                         print "Found attr value but maybe in wrong NG/Node?"
                         print "?SHOULD I UPDATE THIS? %s with %s" % (af, attr)
+                        #s.api.AddSliceTag(slicename, k, attr[k], nd, ng)
             else:
                 # NOTE: these keys should only have a single value for the 
                 #       given key, so do perform updates.
                 if len(sliceattrs) == 0:
-                    print ("ADDING   : %s -> (%s->%s,%s,%s)" %
-                            (slicename, k, attr[k], nd, ng))
-                    if nd is None and ng is None: 
-                        s.api.AddSliceTag(slicename, k, attr[k])
-                    elif ng is None:
-                        s.api.AddSliceTag(slicename, k, attr[k], nd)
-                    else:
-                        s.api.AddSliceTag(slicename, k, attr[k], nd, ng)
+                    AddSliceTag(slicename, k, attr[k], nd, ng)
 
                 elif len(sliceattrs) == 1:
                     if ( sliceattrs[0]['node_id'] == nd_id and 
@@ -318,9 +490,19 @@ def MakeSliceAttribute(slicename, attr):
                                 (k, attr[k], slicename))
                         print ("        missing ng_id:%s or nd_id:%s" %
                                 (ng_id, nd_id))
+                        #print "DELETING : multiple SliceTags that match : %s" % tag_filter
+                        #for x in sliceattrs:
+                        #    print "DELETING : %s" % x
+                        #    s.api.DeleteSliceTag(x['slice_tag_id'])
+                        #AddSliceTag(slicename, k, attr[k], nd, ng)
                 else:
                     # NOTE: this gets more complicated.
                     print "ERROR: multiple SliceTags match: %s" % tag_filter
+                    #print "DELETING : multiple SliceTags that match : %s" % tag_filter
+                    #for x in sliceattrs:
+                    #    print "DELETING : %s" % x
+                    #    s.api.DeleteSliceTag(x['slice_tag_id'])
+                    #AddSliceTag(slicename, k, attr[k], nd, ng)
                     for x in sliceattrs:
                         print x
                     sys.exit(1)
@@ -348,6 +530,53 @@ def SyncSliceExpiration(slicename):
         print "Updating slice %s expiration to 20 years from now" % slicename
         attr = {'expires' : current_time + EXPIRE_DELTA_20YEARS}
         s.api.UpdateSlice(slicename, attr)
+
+def RemoveSliceFromNode(slicename, hostname):
+    """ RemoveSliceFromNode()
+
+        When retiring a slice from M-lab, the slice needs to be removed from
+        M-Lab nodes and it's node-specific slice attributes need to be deleted.
+        The slice itself will remain in the DB, while we use PlanetLab.  Once
+        M-Lab has it's own aggregate, legacy slice management can be
+        re-evaluated.
+
+        This function removes the slice from node and node whitelist.
+
+    Args:
+        slicename - name of slice to remove
+        hostname - name of machine to remove 
+    Returns:
+        None
+
+    """
+    nodes = s.api.GetNodes(hostname)
+    slices = s.api.GetSlices(slicename)
+
+    for node in nodes:
+        slice_ids_on_node = node["slice_ids"]
+        slice_ids_on_node_whitelist = node["slice_ids_whitelist"]
+
+        for sslice in slices:
+
+            if sslice['slice_id'] in slice_ids_on_node_whitelist:
+                # then this slice is not on this node's whitelist
+                print ("Removing %s from whitelist on host: %s" %
+                        (sslice['name'], node['hostname']))
+                s.api.DeleteSliceFromNodesWhitelist(sslice['slice_id'],
+                                               [node['hostname']])
+            else:
+                print ("Confirmed: %s is removed from whitelist on %s" %
+                        (sslice['name'], node['hostname']))
+
+            if sslice['slice_id'] in slice_ids_on_node:
+                print ("Removing %s from host: %s" %
+                        (sslice['name'], node['hostname']))
+                s.api.DeleteSliceFromNodes(sslice['slice_id'],
+                                           [node['hostname']])
+            else:
+                print ("Confirmed: %s is removed from %s" %
+                        (sslice['name'], node['hostname']))
+    return
 
 def WhitelistSliceOnNode(slicename, hostname):
     """
@@ -389,3 +618,33 @@ def WhitelistSliceOnNode(slicename, hostname):
             
     # NOTE: this approach does not delete stray slices from whitelist
     return
+
+def GetBootimage(hostname, imagetype="iso"):
+    """ get_bootimage() - generate a new boot image for the named node, and
+    media type.  Generating a new ISO, replaces the old node key in the myplc
+    db.  So, this is a destructive operation.
+
+    Args:
+        hostname - full hostname of system already registered in myPLC db.
+        type - type of boot image to fetch.  You should only use 'iso' on M-Lab.
+               'usb' is supported by the API call, but most usb sticks do not
+               include a read-only switch, so for security reasons are not
+               recommended.
+
+    Returns:
+        None
+    """
+    if imagetype not in ['iso', 'usb']:
+        print "ERROR: GetBootimage() called with imagetype=%s" % imagetype
+        print "ERROR: imagetype should be either: iso, or usb"
+        sys.exit(1)
+
+    # NOTE: returns a gigantic blob of base64 encoded text.
+    x = s.api.GetBootMedium(hostname, 'node-%s' % imagetype, "", [])
+    bindata = base64.b64decode(x)
+    
+    # NOTE: save file to pwd
+    fname = "%s.%s" % (hostname, imagetype)
+    f = open(fname, 'w')
+    f.write(bindata)
+    f.close()
