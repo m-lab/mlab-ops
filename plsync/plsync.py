@@ -25,6 +25,12 @@ def usage():
         ./plsync.py --syncsite nuq01
                 Creates site, nodes, and pcus for the given site name.
 
+        ./plsync.py --syncslice <slicename> --skipsliceips --skipwhitelist
+                Useful for updating a slice attributes for a single slice.  For
+                instance, to disable a slice prior to deletion from M-Lab, you
+                could add the attribute 'enabled=0' to slices.py and run this
+                command.
+
         ./plsync.py --syncslice all --on nuq01
                 Associates all slices with machines at given site. Also, 
                 updates global slice attributes.  Should only be run after 
@@ -77,7 +83,10 @@ def main():
                         slicesname="slices",
                         sitelist="site_list",
                         slicelist="slice_list",
-                        skipsliceips=False, skipinterfaces=False,
+                        skipsliceips=False, 
+                        skipinterfaces=False,
+                        createslice=False,
+                        getbootimages=False,
                         url=session.API_URL, debug=False, verbose=False, )
 
     parser.add_option("", "--dryrun", dest="debug", action="store_true",
@@ -107,6 +116,14 @@ def main():
                 help=("dont try to create new Interfaces or update existing "+
                       "Interfaces. This permits IPv6 maniuplation without "+
                       "changing legacy IPv4 configuration in DB.") )
+    parser.add_option("", "--createslice", action="store_true", dest="createslice", 
+                help=("Normally, slices are assumed to exist. This option "+
+                      "creates them first. Useful for testing."))
+    parser.add_option("", "--getbootimages", dest="getbootimages", 
+                action="store_true",
+                help=("Download the ISO boot images for Nodes. This is a"+
+                      " destructive operation if ISOs have previously been "+
+                      "downloaded."))
 
     parser.add_option("", "--sitesname", metavar="sites", dest="sitesname", 
                 help="The name of the module with Site() definitions")
@@ -120,7 +137,6 @@ def main():
 
     (options, args) = parser.parse_args()
     if len(sys.argv) == 1:
-        usage()
         parser.print_help()
         sys.exit(1)
 
@@ -139,38 +155,32 @@ def main():
                 sslice.add_node_address(h)
 
     # begin processing arguments to apply filters, etc
-    if ( options.syncsite is not None or 
-         options.syncslice is not None ):
+    if options.syncsite is not None and options.syncslice is None:
+        print "sync site"
+        for site in site_list: 
+            # sync everything when syncsite is None, 
+            # or only when it matches
+            if (options.syncsite == "all" or 
+                options.syncsite == site['name']):
+                print "Syncing: site", site['name']
+                site.sync(options.ondest, options.skipinterfaces, 
+                          options.getbootimages)
 
-        if options.syncsite is not None and options.syncslice is None:
-            print "sync site"
-            for site in site_list: 
-                # sync everything when syncsite is None, 
-                # or only when it matches
-                if (options.syncsite == "all" or 
-                    options.syncsite == site['name']):
-                    print "Syncing: site", site['name']
-                    site.sync(options.ondest, options.skipinterfaces)
+    elif options.syncslice is not None and options.syncsite is None:
+        print options.syncslice
+        for sslice in slice_list: 
+            if (options.syncslice == "all" or 
+                options.syncslice == sslice['name']):
+                print "Syncing: slice", sslice['name']
+                sslice.sync(options.ondest, 
+                           options.skipwhitelist, 
+                           options.skipsliceips,
+                           options.createslice)
 
-        if options.syncslice and options.syncsite is None:
-            print options.syncslice
-            for sslice in slice_list: 
-                if (options.syncslice == "all" or 
-                    options.syncslice == sslice['name']):
-                    print "Syncing: slice", sslice['name']
-                    sslice.sync(options.ondest, 
-                               options.skipwhitelist, 
-                               options.skipsliceips)
+    else:
+        print usage()
+        sys.exit(1)
 
-        if options.syncslice and options.syncsite:
-            print "sync slices & site"
-            if options.syncslice == "all":
-                site = filter(lambda x: x['name'] == options.syncsite, site_list)
-                #site.sync(options.ondest, options.skipinterfaces)
-                for sslice in slice_list: 
-                    sslice.sync(options.ondest, 
-                                options.skipwhitelist, 
-                                options.skipsliceips)
 
 if __name__ == "__main__":
     try:
