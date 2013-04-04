@@ -35,8 +35,9 @@ slice_list = [
                     Attr('MeasurementLabK32', disk_max='35000000'), ],
                     ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
 
+    Slice(name="mlab_mitate",            index=4, ipv6="all"),
     Slice(name="uw_geoloc4",             index=5, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
-    Slice(name="mlab_ooni",              index=6, ipv6=['mlab4.nuq02']),
+    Slice(name="mlab_ooni",              index=6, ipv6=['mlab4.nuq02', 'mlab1.nuq0t', 'mlab2.nuq0t']),
     Slice(name="samknows_ispmon",        index=7, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
     Slice(name="gt_bismark",             index=8, ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
     Slice(name="mlab_neubot",            index=9, ipv6="all"),
@@ -47,7 +48,10 @@ slice_list = [
                     ipv6=['mlab4.nuq01', 'mlab4.nuq02']),
 
     Slice(name="pl_netflow"),
-    Slice(name="pl_default"),
+    # NOTE: codemux=-1 disables codemux thereby freeing port 80 for slices.
+    # NOTE: net_max_rate=-1 disables bwlimits via configuration. (new feature).
+    Slice(name="pl_default", attrs=[Attr('MeasurementLabK32XidMask', codemux='-1'), 
+                                    Attr('MeasurementLabK32XidMask', net_max_rate='-1'),]),
     Slice(name="princeton_comon"),
     Slice(name="princeton_slicestat"),
     Slice(name="mlab_pipeline"),
