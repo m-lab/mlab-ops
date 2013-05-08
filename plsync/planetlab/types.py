@@ -419,8 +419,6 @@ class Node(dict):
             v6gw=self.v6gw()
             ip_addresses = v4ip + "," + v6ip
 
-        print ip_index, v4ip, v4gw, v6ip, v6gw
-
         if self['nodegroup'] in ['MeasurementLabLXC']:
             ipv6_is_enabled = slice_obj.ipv6_is_enabled(self.hostname()) 
             ipv6init = "yes" if ipv6_is_enabled else "no"
@@ -439,10 +437,11 @@ class Node(dict):
                                         'IPV6ADDR' : v6ip,
                                         'IPV6_DEFAULTGW' : v6gw,}))
 
-        elif self['nodegroup'] in ['MeasurementLab', 'MeasurementLabK32']:
+        elif self['nodegroup'] in ['MeasurementLab', 'MeasurementLabK32', 
+                                   'MeasurementLabCentos']:
             attr = Attr(self.hostname(), ip_addresses=ip_addresses)
         else:
-            raise Exception("unknown nodegroup")
+            raise Exception("unknown nodegroup: %s" % self['nodegroup'])
 
         return attr
 
@@ -521,6 +520,15 @@ class Slice(dict):
       Optional:
         index - int, the index in the 12-slots for slices with IPv4 addresses.
         attrs - [], a list of Attr() objects with attributes for this slice.
+        use_initscript - bool, default is False.  If True, use the
+                    mlab_generic_initscript for this slice.  The initscript
+                    sets up the slice yum repos on first-creation to
+                    automatically install a custom rpm package.  In particular, 
+                    the rpm package should be named the same as the slicename.
+                    For slice iupui_ndt, the initscript installs the custom
+                    package called "iupui_ndt-*.rpm" automatically.
+                    CAUTION: this attribute is applied per-node.  Also, only to
+                    nodes on which plsync is called explicitly.
         ipv6 - how to enable IPv6 for this slice. Options are:
                 "all" - add IPv6 addres to all nodes
                 [] - a list of abbreviated hostnames, i..e ['mlab1.nuq01', 
@@ -537,6 +545,8 @@ class Slice(dict):
                              "of a NodeGroup, hostname, or None"))
         if 'index' not in kwargs:
             kwargs['index'] = None
+        if 'use_initscript' not in kwargs:
+            kwargs['use_initscript'] = False
         if 'ipv6' not in kwargs:
             # None means ipv6 is OFF by default
             kwargs['ipv6'] = None
@@ -587,5 +597,13 @@ class Slice(dict):
                     if attr:
                         SyncSliceAttribute(self['name'], attr)
 
+                # NOTE: use_initscript is set and hostname_or_site is explicit
+                if self['use_initscript'] and hostname_or_site is not None:
+                    # NOTE: assign the mlab_generic_initscript to slices on 
+                    #       this node.
+                    # TODO: this needs to be waaay more flexible.
+                    attr = Attr(node.hostname(), 
+                                initscript="mlab_generic_initscript")
+                    SyncSliceAttribute(self['name'], attr)
         return
 

@@ -184,25 +184,93 @@ def MakePCU(login_base, node_id, pcu_fields):
             sys.exit(1)
     return pcu_id
 
-# TODO: perform nodegroup 'update's here also
+def SyncNodeTag(hostname, node_id, tagname, value):
+    """
+       SyncNodeTag() - Adds, Updates, or Confirms the assignment of the given
+                       tagname and value on the given hostname/node_id.
+       Args:
+        hostname - string, used for printing
+        node_id - int, node_id of hostname within plcdb, from previous call to
+                    GetNodes().
+        tagname - string, the name of a pre-existing NodeTagType.
+        value - string, the value of this tag.
+
+       Returns:
+        None
+
+       Exits on errors.
+    """
+    # NOTE: accept that node_id is valid.
+    # NOTE: lookup all NodeTags with tagname:value
+    tags = s.api.GetNodeTags({'node_id': node_id, 
+                              'tagname' : tagname})
+    # NOTE: only one distinct tagname allowed per node.
+    if len(tags) > 1:
+        print ("ERROR: found %s tags for %s on %s" % 
+               (len(tags), tagname, hostname))
+        print ("ERROR: expected only 1, plese correct this.")
+        sys.exit(1)
+
+    if len(tags) == 0:
+        # NOTE: not present, add it!
+        print "ADDING: nodetag %s->%s on %s" % (tagname, value, hostname)
+        s.api.AddNodeTag(node_id, tagname, value)
+    else:
+        tag = tags[0]
+        if tag['value'] != value:
+            print ("UPDATE: nodetag from %s->%s on %s" % 
+                   (tag['value'], value, hostname))
+            s.api.UpdateNodeTag(tag['node_tag_id'], value)
+        else:
+            print ("Confirmed: nodetag %s->%s is set on %s" %
+                   (tagname, value, hostname))
+
 def PutNodeInNodegroup(hostname, node_id, nodegroup_name):
+    """
+       PutNodeInNodegroup() -- A specialty function for setting up a node's
+            NodeGroup and nodetags.  It is less generic than other Sync*
+            functions because it operates on the 'deployment' nodetag and
+            'fcdistro' nodetags.  See 'SyncNodeTag()' for general nodetag
+            syncing.
+
+       Args:
+        hostname - string, used for printing
+        node_id - int, node_id of hostname within plcdb, from previous call to
+                    GetNodes().
+        nodegroup_name - string, name of new nodegroup. (one per node).
+
+       Returns:
+        None
+
+       Exits on errors.
+    """
     node_list = s.api.GetNodes(node_id, ['nodegroup_ids', 'node_tag_ids'])
     nodegroup_list = s.api.GetNodeGroups({'groupname' : nodegroup_name}, 
                                          ['nodegroup_id'])
-    if len(nodegroup_list) > 0 and len(node_list) > 0:
-        # NB: both are in the DB.
-        # if node not in nodegroup then add it
-        if (nodegroup_list[0]['nodegroup_id'] not in 
-            node_list[0]['nodegroup_ids']):
-            print "ADDING: %s to nodegroup %s" % (hostname, nodegroup_name)
-            s.api.AddNodeTag(hostname, 'deployment', nodegroup_name)
-        else:
-            print ("Confirmed: %s is in nodegroup %s" %
-                    (hostname, nodegroup_name))
-    else:
-        print ("ERROR: could not find node_id or nodegroup %s,%s" %
-                (node_id, nodegroup_name))
+    if len(nodegroup_list) != 1:
+        print ("ERROR: found %s nodegroups when looking for %s in plc db" % 
+                (len(nodegroup_list), nodegroup_name)) 
+        print "ERROR: expected 1; please double check configuration"
         sys.exit(1)
+
+    if len(node_list) != 1:
+        print ("ERROR: found %s hosts when looking for %s in plc db" % 
+                (len(node_list), hostname))
+        print "ERROR: expected 1; please double check configuration"
+        sys.exit(1)
+
+    # NOTE: both node and nodegroup are in the plc DB.
+    ng_id = nodegroup_list[0]['nodegroup_id'] 
+    node_ng_ids = node_list[0]['nodegroup_ids']
+    if ng_id not in node_ng_ids:
+        SyncNodeTag(hostname, node_id, 'deployment', nodegroup_name)
+    else:
+        print ("Confirmed: %s is in nodegroup %s" %
+               (hostname, nodegroup_name))
+
+    # TODO: find a better place for this.
+    if nodegroup_name in ['MeasurementLabCentos']:
+        SyncNodeTag(hostname, node_id, 'fcdistro', 'centos6')
 
 def setTagTypeId(tagname, tags):
     tagtype_list = s.api.GetTagTypes({"tagname":tagname})
