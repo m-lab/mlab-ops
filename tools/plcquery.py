@@ -9,7 +9,7 @@ import sys
 import re
 
 SESSION_DIR=os.environ['HOME'] + "/.ssh"
-SESSION_FILE=SESSION_DIR + "/mlab_session"
+SESSION_FILE=SESSION_DIR + "/query_mlab_session"
 API_URL = "https://boot.planet-lab.org/PLCAPI/"
 VERBOSE=False
 DEBUG=False
@@ -228,20 +228,30 @@ def get_pcu_id(api, obj_id):
         if len(ret) == 1:
             retid = ret[0]['pcu_id']
             return retid
-        raise Exception("unknown id: %s" % obj_id)
+        raise Exception("GetPCUs returned %s results for %s; expected 1" % (
+                        len(ret), obj_id))
+
+def get_node_id(api, obj_id):
+    try:
+        retid = int(obj_id)
+        return retid
+    except:
+        ret = api.GetNodes(obj_id, ['node_id'])
+        if len(ret) == 1:
+            retid = ret[0]['node_id']
+            return retid
+        raise Exception("GetNodes returned %s results for %s; expected 1" % (
+                        len(ret), obj_id))
 
 def handle_update(api, config, obj_filter, fields):
     if config.type == 'node': 
-        print "WARNING: untested."
-        sys.exit(1)
         if config.fields is None: 
             config.fields='hostname'
             fields = parse_comma_sep_fields(config.fields)
 
-        n = api.UpdateNode(pcu_id, fields)
-        if config.listfields: list_fields(n)
-        for i in n:
-            print_fields(i, fields, config.format)
+        node_id = get_node_id(api, obj_filter)
+        n = api.UpdateNode(node_id, fields)
+        print n
 
     if config.type == 'pcu': 
         if config.fields is None: 
