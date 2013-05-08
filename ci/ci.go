@@ -16,16 +16,10 @@ func init() {
 
 var expected_user_agent string = "Google Code Project Hosting (+http://code.google.com/p/support/wiki/PostCommitWebHooks)"
 var repository_path_prefix string = "https://code.google.com/p/m-lab."
-var drone_io_prefix string = "https://drone.io/dominic-mlab/m-lab."
+var drone_io_prefix string = "https://drone.io/hook?id=dominic-mlab/m-lab."
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
-		redirect_map := map[string]string {
-			"libraries": "BV8KN727SQ1JMEK7DKIGSO97SLBDJL2O",
-			"ns":        "S4MHVE51D5KN5SGK1IOV1TA0SGK21RBF",
-			"pipeline":  "6MO0BPE3RKNHJ1EOS3MHE89M71C9JF8M",
-		}
-
 		c := appengine.NewContext(r)
 		c.Debugf("Request: %#v", r)
 
@@ -59,15 +53,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		repo := repository_path[len(repository_path_prefix):len(repository_path)-1]
-		var key string
-		var exists bool
-		if key, exists = redirect_map[repo]; !exists {
-			c.Warningf("No redirect for repo %s", repo)
-			return
-		}
 
-		c.Infof("Found key %s for repo %s", key, repo)
-		var url string = drone_io_prefix + repo + "?key=" + key
+		c.Infof("Found repo %s", repo)
+		var url string = drone_io_prefix + repo
 
 		// post to drone.io based on contents
 		c.Infof("Forwarding request to %s", url)
