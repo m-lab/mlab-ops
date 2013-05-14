@@ -374,11 +374,16 @@ def main():
             sys.exit(1)
 
         for hostname,user,passwd,model in pcu_fields:
-            if model != "DRAC":
+            if model in ["DRAC", "IMM", "HPiLO"]:
+                system("expect exp/REBOOT.exp %s %s '%s' %s %s" % 
+                        (hostname, user, passwd, model, options.debug) )
+            elif model == "OpenIPMI":
+                cmd = "ipmitool -I lanplus -H %s -U %s -P '%s' power cycle"
+                cmd = cmd % (hostname, user, passwd) 
+                system(cmd)
+            else:
                 print "%s is an unsupported PCU model" % model
                 continue
-            system("expect exp/REBOOT.exp %s %s '%s'" % 
-                        (hostname, user, passwd) )
 
     elif command == "resetpassword":
         ## NOTE: be extra verbose for password resets, in case something goes
@@ -434,14 +439,12 @@ def main():
             sys.exit(1)
 
         for hostname,user,passwd,model,ip in pcu_fields:
-            if model != "DRAC":
-                print "%s is an unsupported PCU model" % model
-                continue
             print "host:         %s" % hostname[0:5]+hostname[6:]
             print "pcu hostname: https://%s" % hostname
             print "pcu IP:       %s" % ip
             print "pcu username: %s" % user
-            print "pcu password  %s" % passwd
+            print "pcu password: %s" % passwd
+            print "pcu model:    %s" % model
 
 if __name__ == "__main__":
     main()

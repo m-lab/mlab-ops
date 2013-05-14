@@ -4,8 +4,10 @@ set timeout 60
 set host [lindex $argv 0]
 set user [lindex $argv 1]
 set password [lindex $argv 2]
+set model [lindex $argv 3]
 set method "ssh"
-set dryrun "True"
+set dryrun [lindex $argv 4]
+set prompt "\\$|system>|/.*>|</>hpiLO->" 
 
 log_user 1
 if { "$method" == "ssh" } {
@@ -37,31 +39,31 @@ if { "$method" == "ssh" } {
                 exp_continue 
             }
             "Permission denied" { 
-                send_user "DRAC ssh: username/password: $expect_out(0,string)";
+                send_user "$model ssh: username/password: $expect_out(0,string)";
                 exit 1
             }
             "Could not resolve hostname" { 
-                send_user "DRAC ssh: $expect_out(0,string)"; 
+                send_user "$model ssh: $expect_out(0,string)"; 
                 exit 1
             }
             "Connection timed out" { 
-                send_user "DRAC ssh: $expect_out(0,string)"; 
+                send_user "$model ssh: $expect_out(0,string)"; 
                 exit 1
             }
             -re "Received disconnect.*" { 
-                send_user "DRAC ssh: $expect_out(0,string)"; 
+                send_user "$model ssh: $expect_out(0,string)"; 
                 exit 1
             }
-            -re "\\$|/.*>|.*$user.*#" { 
+            -re $prompt { 
                 send "\r"; 
             } 
             timeout { 
-                send_user "DRAC ssh: timeout\n" ; 
+                send_user "$model ssh: timeout\n" ; 
                 exit 1; 
             }
             eof { 
                 if { $cont == 1 } { 
-                    send_user "DRAC ssh failed twice\n"; 
+                    send_user "$model ssh failed twice\n"; 
                     exit 1;
                 };
                 set cont 1
@@ -70,11 +72,27 @@ if { "$method" == "ssh" } {
         if { $cont == 0 } { break; }
     }
 
-    set prompt "\\$|/.*>" 
+    if { "$model" == "DRAC" } {
+        if { "$dryrun" == "True" } {
+            expect -re $prompt { send "racadm serveraction powerstatus\r"; }
+        } else {
+            expect -re $prompt { send "racadm serveraction powercycle\r"; }
+        }
+    } elseif { "$model" == "IMM" } {
+        if { "$dryrun" == "True" } {
+            expect -re $prompt { send "power state\r"; }
+        } else {
+            expect -re $prompt { send "power cycle\r"; }
+        }
+    } elseif { "$model" == "HPiLO" } {
+        if { "$dryrun" == "True" } {
+            expect -re $prompt { send "power\r"; }
+        } else {
+            expect -re $prompt { send "power reset\r"; }
+        }
+    }
 
-    expect -re $prompt { send "racadm serveraction powercycle\r"; }
-
-    expect -re "\\$|/.*>" { send "exit\r"; } 
+    expect -re $prompt { send "exit\r"; } 
 
     expect eof { send_user "" }
 }
