@@ -11,6 +11,7 @@ SESSION_FILE=SESSION_DIR + "/ssh_mlab_session"
 API_URL = "https://boot.planet-lab.org/PLCAPI/"
 VERBOSE=False
 DEBUG=False
+SEVEN_DAYS=60*60*24*7
 
 class API:
     """ API is a wrapper class around the PlanetLab API's xmlrpc calls.
@@ -45,7 +46,7 @@ def refreshsession():
             'AuthMethod' : 'password',
             'AuthString' : password}
     plc = API(auth, API_URL)
-    session = plc.GetSession(60*60*24*7)
+    session = plc.GetSession(SEVEN_DAYS)
     try:
         os.makedirs(SESSION_DIR)
     except:
@@ -85,13 +86,14 @@ def get_mlabhosts(api, options):
             options - the options object returned after
                       OptionParser().parse_args()
         Returns:
-            A tuple with four dicts, mapping:
-               (node_id to hostname,
-                node_id to ipv4 address,
-                node_id to ipv6 address,
-                node_id to ssh key)
+            A dict that maps:
+                hostname -> (ipv4 address, ipv6 address, ssh key)
+            Either address may be None, but not both.
+            The ssh key is guaranteed not to be None.
     """
-    nodes = api.GetNodes({'hostname' : options.hostpattern},
+    # NOTE: fetch hosts whose ssh_rsa_key value is not None.
+    nodes = api.GetNodes({'hostname' : options.hostpattern,
+                          '~ssh_rsa_key' : None},
                          ['hostname', 'node_id', 'ssh_rsa_key'])
     node_ids = [ n['node_id'] for n in nodes ]
 
@@ -119,8 +121,31 @@ def get_mlabhosts(api, options):
     node_id2ipv6 = { if_id2node_id[if_id]:if_id2ipv6[if_id]
                      for if_id in if_id2ipv6.keys() }
 
-    assert (len(node_id2name.keys()) == len(node_id2ipv4.keys()))
-    return (node_id2name, node_id2ipv4, node_id2ipv6, node_id2key)
+    # NOTE: now pull all these values into a single dict.
+    host2v4v6key = {}
+    for node_id in node_id2name:
+        hostname = node_id2name[node_id]
+        ipv4=None
+        if node_id in node_id2ipv4:
+            ipv4 = node_id2ipv4[node_id]
+        ipv6=None
+        if node_id in node_id2ipv6:
+            ipv6 = node_id2ipv6[node_id]
+        key=None
+        if node_id in node_id2key:
+            key = node_id2key[node_id]
+        # GetNodes() should only return non-None keys.
+        assert (key is not None) 
+        host2v4v6key[hostname] = (ipv4,ipv6,key)
+
+    return host2v4v6key
+
+def has_write_access(filename):
+    if os.path.exists(filename):
+        return os.access(filename, os.W_OK)
+    else:
+        # NOTE: if the file doesn't exist make sure we can write to directory.
+        return os.access(os.path.dirname(filename), os.W_OK)
 
 def get_knownhosts(hosts_file):
     """ Reads the content of hosts_file as if it were a known_hosts file.
@@ -131,14 +156,23 @@ def get_knownhosts(hosts_file):
     """
     # collect all entries currently in known_hosts_mlab and ssh config
     if os.path.exists(hosts_file):
+        if not os.access(hosts_file, os.R_OK):
+            print "Error: we cannot read to %s" % hosts_file
+            sys.exit(1)
         hosts_fd = open(hosts_file, 'r')
         hosts_lines = [ line.strip() for line in hosts_fd.readlines() ]
         hosts_fd.seek(0)
         hosts_blob = hosts_fd.read()
         hosts_fd.close()
     else:
+        # NOTE: file doesn't exist yet, no big deal.
         hosts_lines = [ ]
         hosts_blob = ""
+
+    if not has_write_access(hosts_file):
+        print "Error: we cannot write to %s" % hosts_file
+        sys.exit(1)
+
     return (hosts_lines, hosts_blob)
 
 def get_sshconfig(cfg_file):
@@ -149,11 +183,19 @@ def get_sshconfig(cfg_file):
             file content as string.
     """
     if os.path.exists(cfg_file):
+        if not os.access(cfg_file, os.R_OK):
+            print "Error: we cannot read to %s" % cfg_file
+            sys.exit(1)
         cfg = open(cfg_file, 'r')
         cfg_blob = cfg.read()
         cfg.close()
     else:
+        # NOTE: file doesn't exist yet, no big deal.
         cfg_blob = ""
+
+    if not has_write_access(cfg_file):
+        print "Error: we cannot write to %s" % cfg_file
+        sys.exit(1)
 
     return cfg_blob
 
@@ -220,7 +262,7 @@ def main(options):
     cfg_file = os.environ['HOME'] + "/.ssh/config"
 
     api = getapi()
-    (id2name, id2ipv4, id2ipv6, id2key) = get_mlabhosts(api, options)
+    host2v4v6key = get_mlabhosts(api, options)
 
     if (options.knownhosts or options.update):
         (hosts_lines, hosts_blob) = get_knownhosts(hosts_file)
@@ -228,31 +270,26 @@ def main(options):
     if options.config:
         cfg_blob = get_sshconfig(cfg_file)
 
-    # for each mlab host make sure there is a valid key,
-    # then add the config and knownhost entries if missing
-    for node_id in id2name.keys():
-        if id2key[node_id] is None:
-            continue
+    # for each mlab host add the config and knownhost entries if missing
+    for (hostname,(ipv4,ipv6,key)) in host2v4v6key.items():
 
         if options.config:
             # args: hostname, username, ...
-            add_config_entry(id2name[node_id], options.user, hosts_file,
+            add_config_entry(hostname, options.user, hosts_file,
                              cfg_file, cfg_blob)
 
-        if node_id in id2ipv4 and (options.knownhosts or options.update):
-            # args: hostname, ipv4, sshkey, ...
-            add_knownhosts_entry(id2name[node_id],id2ipv4[node_id],
-                                 id2key[node_id],hosts_file, hosts_lines,
+        if ipv4 is not None and (options.knownhosts or options.update):
+            add_knownhosts_entry(hostname, ipv4, key, hosts_file, hosts_lines,
                                  hosts_blob, options.update)
 
         # NOTE: not all nodes have ivp6 addrs.
-        if node_id in id2ipv6 and (options.knownhosts or options.update):
-            # args: hostname, ipv6, sshkey, ...
-            add_knownhosts_entry(id2name[node_id],id2ipv6[node_id],
-                                 id2key[node_id], hosts_file, hosts_lines,
+        if ipv6 is not None and (options.knownhosts or options.update):
+            add_knownhosts_entry(hostname, ipv6, key, hosts_file, hosts_lines,
                                  hosts_blob, options.update)
 
 def parse_options():
+    global VERBOSE
+    global DEBUG
 
     from optparse import OptionParser
     parser = OptionParser(usage=usage())
@@ -290,8 +327,6 @@ def parse_options():
         parser.print_help()
         sys.exit(1)
 
-    global VERBOSE
-    global DEBUG
     VERBOSE = options.verbose
     DEBUG = options.debug
 
