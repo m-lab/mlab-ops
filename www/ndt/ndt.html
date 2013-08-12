@@ -1,0 +1,894 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title></title>
+    <style type="text/css">
+    @font-face {
+      font-family: "League Gothic";
+      src: url("fonts/League_Gothic.otf") format("opentype");
+    }
+
+    body * {
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      overflow: hidden;
+    }
+    a img {
+      border: 0;
+    }
+    #widget {
+      position: relative;
+      width: 720px;
+      height: 480px;
+      overflow: hidden;
+      background-color: black;
+      color: white;
+      text-transform: uppercase;
+      font-size: 30px;
+      font-family: "League Gothic", Impact, "Arial Narrow", sans-serif;
+    }
+    .page {
+      width: 640px;
+      height: 400px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      padding: 40px;
+      background-color: #00aef0;
+      color: #000;
+    }
+    #welcome {
+      text-align: center;
+    }
+    #test, #results {
+      display: none;
+    }
+    #test {
+      background-color: #3cb878;
+    }
+
+
+    /* Base styles */
+
+    h1, h2, h3 {
+      position: relative;
+      margin: 0;
+      padding: 0;
+      font-weight: normal;
+    }
+    h1 {
+      font-size: 72px;
+    }
+    h2 {
+      font-size: 48px;
+    }
+    h2 em {
+      font-style: normal;
+      color: white;
+    }
+    h3 {
+      font-size: 36px;
+    }
+
+    .button {
+      padding: 3px 20px;
+      border: 4px solid white;
+      -moz-border-radius: 50px;
+      -webkit-border-radius: 50px;
+      border-radius: 50px;
+      background-color: #4d4d4d;
+      color: white;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .button:hover {
+      background-color: #000;
+    }
+    .controls .button {
+      -moz-box-shadow: 0 3px 5px #000;
+    }
+
+
+    /* Welcome page */
+
+    .page .status,
+    .page .controls {
+      width: 640px;
+      position: absolute;
+      left: 40px;
+      bottom: 40px;
+      text-align: center;
+    }
+    body.initializing .page .controls,
+    body.ready .page .status {
+      display: none;
+    }
+    body.ready .page .controls,
+    body.initializing .page .status {
+      display: block;
+    }
+
+    #welcome .info {
+      padding-top: 50px;
+      text-transform: none;
+      font: 13px/18px verdana, helvetica, arial, sans-serif;
+    }
+    #welcome .info .logo {
+      margin-bottom: 30px;
+    }
+    #welcome .info p {
+      margin-bottom: 20px;
+    }
+    #welcome .info a {
+      color: white;
+      font-weight: bold;
+    }
+
+
+    /* Test */
+
+    #test .locations {
+      width: 640px;
+      position: absolute;
+      left: 40px;
+      top: 320px;
+      color: white;
+      font-size: 48px;
+      line-height: 48px;
+    }
+    #test .location {
+      position: absolute;
+      top: 0;
+    }
+    #test .location.local {
+      right: 0;
+      text-align: right;
+    }
+    #test .location.remote {
+      left: 0;
+      text-align: left;
+    }
+    #test .location .address {
+      margin-top: 10px;
+      color: black;
+      font: bold 13px/13px verdana, helvetica, arial, sans-serif;
+    }
+
+    .progress-bar {
+      position: absolute;
+      left: 40px;
+      top: 120px;
+      width: 640px;
+      height: 160px;
+      overflow: hidden;
+    }
+    .progress-bar .segment {
+      width: 100%;
+      height: 160px;
+      position: absolute;
+    }
+    #upload .progress-bar .segment {
+      background-image: url(http://lh3.ggpht.com/FKzBiLYiWJCVjO9t0tQ8u3SZDCi0hrZb-Wfmk0K3Q-JFzbT7-eLDG58nUFqt7utC7EPr8VwFOLStWBcsAFU=s640);
+    }
+    #download .progress-bar .segment {
+      background-image: url(http://lh3.ggpht.com/l53qZgXS0XIuQz6p1_nxP0CtHeF2jZQ1g4VVocT8sFpyeccSQgTQYJQvkqvCpTpM4jcQ42PYeJX7sDIdh1eH=s640);
+    }
+    .progress-bar .dot {
+      position: absolute;
+      width: 50px;
+      height: 160px;
+      background-color: white;
+    }
+
+
+    /* Test results */
+
+    #results {
+      height: 400px;
+    }
+    #result-pages {
+      width: 640px;
+      height: 280px;
+      position: absolute;
+      left: 40px;
+      top: 100px;
+    }
+    #result-pages .result-page {
+      width: 640px;
+      height: 280px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: none;
+    }
+    #results.summary #result-pages .result-page.summary,
+    #results.details #result-pages .result-page.details,
+    #results.advanced #result-pages .result-page.advanced {
+      display: block;
+    }
+    #result-pages .details,
+    #result-pages .advanced {
+      overflow: auto; 
+      text-transform: none;
+      font: 13px/18px verdana, arial, helvetica, sans-serif;
+    }
+    #result-pages .advanced {
+      white-space: pre;
+    }
+    #results .result {
+      width: 268px;
+      height: 180px;
+      position: absolute;
+      top: 0px;
+      padding: 20px;
+      border: 1px solid white;
+    }
+    #results .result .number {
+      font-size: 96px;
+      line-height: 96px;
+      color: white;
+    }
+    #results .result .units {
+      font-size: 48px;
+      text-transform: none;
+    }
+    #results .upload {
+      left: 0;
+    }
+    #results .download {
+      right: 0;
+    }
+    #results .other {
+      position: absolute;
+      top: 240px;
+      text-transform: none;
+      font: 13px/18px verdana, arial, helvetica, sans-serif;
+    }
+    #results .controls {
+      width: 320px;
+      left: 360px;
+      text-align: right;
+    }
+    #results .branding {
+      position: absolute;
+      width: 320px;
+      left: 40px;
+      bottom: 24px;
+      text-transform: none;
+      font: 11px/16px verdana, arial, helvetica, sans-serif;
+    }
+    #results .branding a {
+      color: black;
+    }
+
+
+    #results .view-selector {
+      position: absolute;
+      right: 40px;
+      top: 60px;
+      font-size: 18px;
+      line-height: 18px;
+    }
+    #results .view-selector .summary {
+      border-width: 2px 1px 2px 2px;
+      padding-right: 15px;
+      -moz-border-radius: 15px 0 0 15px;
+      -webkit-border-radius: 15px 0 0 15px;
+      border-radius: 15px 0 0 15px;
+    }
+    #results .view-selector .details {
+      border-width: 2px 1px;
+      padding-left: 15px;
+      padding-right: 15px;
+      -moz-border-radius: 0;
+      -webkit-border-radius: 0;
+      border-radius: 0;
+    }
+    #results .view-selector .advanced {
+      border-width: 2px 2px 2px 1px;
+      padding-left: 15px;
+      -moz-border-radius: 0 15px 15px 0;
+      -webkit-border-radius: 0 15px 15px 0;
+      border-radius: 0 15px 15px 0;
+    }
+    #results.summary .view-selector .summary,
+    #results.details .view-selector .details,
+    #results.advanced .view-selector .advanced {
+      background-color: #000;
+    }
+
+    </style>
+    <!--[if IE]>
+    <style type="text/css">
+    @font-face {
+      font-family: "League Gothic";
+      src: url("fonts/League_Gothic.eot");
+    }
+    </style>
+    <![endif]-->
+    <script type="text/javascript" 
+            src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js">
+    </script>
+    <script type="text/javascript">
+var console = window.console || { log: function() {} };
+
+$(function() {
+  jQuery.fx.interval = 50;
+  if (simulate) {
+    setTimeout(initializeTest, 1000);
+    return;
+  }
+  var url = 'http://mlab-ns.appspot.com/ndt?format=json';
+  if ($.browser.msie && window.XDomainRequest) {
+    // Use MS XDR
+    var xdr = new XDomainRequest();
+    xdr.open('get', url);
+    xdr.onload = function() {
+      //console.log(xdr.responseText);
+      //addApplet(xdr.responseText.url);
+      var resp = JSON.parse(xdr.responseText);
+      console.log(resp);
+      addApplet(resp.url);
+    };
+    xdr.send();
+  } else {
+    $.get(url, function(data) {
+      console.log(data);
+      addApplet(data.url);
+    });
+  }
+});
+
+// CONSTANTS
+// Testing phases
+var PHASE_LOADING   = 0;
+var PHASE_WELCOME   = 1;
+var PHASE_PREPARING = 2;
+var PHASE_UPLOAD    = 3;
+var PHASE_DOWNLOAD  = 4;
+var PHASE_RESULTS   = 5;
+
+
+// STATUS VARIABLES
+var currentPhase = PHASE_LOADING;
+var currentPage = 'welcome';
+var transitionSpeed = 400;
+
+// Stats from the previous test, for retesting
+var lastUploadSpeed = false;
+
+var autoRun = false;
+
+// PRIMARY METHODS
+function addApplet(codebase) {
+  // var codebase = 'ndt.iupui.mlab4.nuq01.measurement-lab.org:7123';
+  var applet =
+      '<applet name="NDT" code="Tcpbw100.class" codebase="' + codebase +
+      '" archive="Tcpbw100.jar" '+ 'width="720" height="200">' +
+      '<param name="client" value="measurementlab.net applet"></param>' +
+      '</applet>';
+  console.log(applet);
+  $('body').append(applet);
+  initializeTest();
+}
+
+function initializeTest() {
+  // Test throbber
+  initializeThrobber();
+
+  // Initialize start buttons
+  $('.start.button').click(startTest);
+
+  // Results view selector
+  $("#results .view-selector .summary").click(showResultsSummary);
+  $("#results .view-selector .details").click(showResultsDetails);
+  $("#results .view-selector .advanced").click(showResultsAdvanced);
+
+  document.body.className = 'ready';
+  //return showPage('results');
+  setPhase(PHASE_WELCOME);
+  if (autoRun) $('.start.button').click();
+}
+
+function startTest(evt) {
+  evt.stopPropagation();
+  evt.preventDefault();
+  showPage('test');
+  if (simulate) return simulateTest();
+  currentPhase = PHASE_WELCOME;
+  testApplet().run_test();
+  monitorTest();
+}
+
+function simulateTest() {
+  setPhase(PHASE_RESULTS);
+  return;
+  setPhase(PHASE_PREPARING);
+  setTimeout(function(){ setPhase(PHASE_UPLOAD) }, 2000);
+  setTimeout(function(){ setPhase(PHASE_DOWNLOAD) }, 4000);
+  setTimeout(function(){ setPhase(PHASE_RESULTS) }, 6000);
+}
+
+function monitorTest() {
+  var message = testError();
+
+  /*
+  var currentStatus = testStatus();
+  debug(currentStatus);
+  var diagnosis = testDiagnosis();
+  debug(diagnosis);
+  */
+
+  if (message.match(/not run/) && currentPhase != PHASE_LOADING) {
+    setPhase(PHASE_WELCOME);
+    return false;
+  }
+  if (message.match(/completed/) && currentPhase < PHASE_RESULTS) {
+    setPhase(PHASE_RESULTS);
+    return true;
+  }
+
+  var uploadTestComplete = false;
+  if (currentPhase == PHASE_UPLOAD) {
+    if (lastUploadSpeed != false) {
+      uploadTestComplete = lastUploadSpeed != uploadSpeed(true);
+    }
+    else {
+      uploadTestComplete = uploadSpeed(true) > 0;
+    }
+    if (uploadTestComplete) {
+      lastUploadSpeed = uploadSpeed(true);
+      debug("Upload speed is " + uploadSpeed(true));
+      setPhase(PHASE_DOWNLOAD);
+    }
+  }
+  if (!remoteServer().match(/ndt/) && currentPhase == PHASE_PREPARING) {
+    debug("Remote server is " + remoteServer());
+    setPhase(PHASE_UPLOAD);
+  }
+  if (remoteServer() !== 'unknown' && currentPhase < PHASE_PREPARING) {
+    setPhase(PHASE_PREPARING);
+  }
+  setTimeout(monitorTest, 100);
+}
+
+// PHASES
+function setPhase(phase) {
+  switch (phase) {
+
+    case PHASE_WELCOME:
+      debug("WELCOME");
+      showPage('welcome');
+      break;
+
+    case PHASE_PREPARING:
+      debug("PREPARING TEST");
+
+      $('#loading').show();
+      $('#upload').hide();
+      $('#download').hide();
+
+      showPage('test', startThrobber);
+      break;
+
+    case PHASE_UPLOAD:
+      debug("UPLOAD TEST");
+
+      $("#test .remote.location .address").get(0).innerHTML = remoteServer();
+
+      stopThrobber();
+      $('#loading').fadeOut(transitionSpeed, function(){
+        $('#upload').fadeIn(transitionSpeed, function(){
+          startBar('upload');
+        });
+      });
+      break;
+
+    case PHASE_DOWNLOAD:
+      debug("DOWNLOAD TEST");
+      stopBar('upload');
+      $('#upload').fadeOut(transitionSpeed, function(){
+        $('#download').fadeIn(transitionSpeed, function(){
+          startBar('download');
+        });
+      });
+      break;
+
+    case PHASE_RESULTS:
+      debug("SHOW RESULTS");
+      debug('Testing complete');
+      stopBar('download');
+
+      document.getElementById('upload-speed').innerHTML = uploadSpeed().toPrecision(2); 
+      document.getElementById('download-speed').innerHTML = downloadSpeed().toPrecision(2); 
+      document.getElementById('latency').innerHTML = averageRoundTrip().toPrecision(2); 
+      document.getElementById('jitter').innerHTML = jitter().toPrecision(2); 
+      document.getElementById("test-details").innerHTML = testDetails();
+      document.getElementById("test-advanced").innerHTML = testDiagnosis();
+
+      showPage('results');
+      break;
+
+    default:
+      return false;
+  }
+  currentPhase = phase;
+}
+
+
+// PAGES
+
+function showPage(page, callback) {
+  debug("Show page: " + page);
+  if (page == currentPage) {
+    if (callback !== undefined) callback();
+    return true;
+  }
+  if (currentPage !== undefined) {
+    $("#" + currentPage).fadeOut(transitionSpeed, function(){
+      $("#" + page).fadeIn(transitionSpeed, callback);
+    });
+  }
+  else {
+    debug("No current page");
+    $("#" + page).fadeIn(transitionSpeed, callback);
+  }
+  currentPage = page;
+}
+
+
+// RESULTS
+
+function showResultsSummary() {
+  showResultsPage("summary");
+}
+
+function showResultsDetails() {
+  showResultsPage("details");
+}
+
+function showResultsAdvanced() {
+  showResultsPage("advanced");
+}
+
+function showResultsPage(page) {
+  debug("Results: show " + page);
+  var pages = ["summary", "details", "advanced"];
+  for (var i=0, len=pages.length; i < len; i++) {
+    $("#results")[(page == pages[i]) ? "addClass" : "removeClass"](pages[i]);
+  }
+}
+
+
+
+// THROBBER 
+
+var throbberPos = -1;
+var throbberSpeed = 500;
+
+function initializeThrobber() {
+  var dot;
+  var b = bar('loading');
+  for (var i=0, len=8; i < len; i++) {
+    dot = document.createElement('div');
+    dot.className = 'dot';
+    dot.style.left = (i * 80) + "px";
+    dot.style.display = "none";
+    b.appendChild(dot);
+  }
+}
+
+function startThrobber() {
+  debug('Start throbber');
+  throbberPos = -1;
+  advanceThrobber();
+}
+
+function advanceThrobber() {
+  if (throbberPos >= 0) {
+    $("#loading .dot:eq(" + throbberPos + ")").fadeOut(throbberSpeed);
+  }
+  incrementThrobber();
+  $("#loading .dot:eq(" + throbberPos + ")").fadeIn(throbberSpeed, advanceThrobber);
+}
+
+function incrementThrobber() {
+  var len = $("#loading .dot").size();
+  throbberPos++;
+  if (throbberPos >= len) throbberPos = 0;
+}
+
+function stopThrobber() {
+  debug('Stop throbber');
+  $("#loading .dot").stop(true).fadeOut(throbberSpeed);
+}
+
+// Upload/download animations
+
+var barSpeed = 3000;
+
+function bar(test) {
+  return $(".progress-bar", document.getElementById(test)).get(0);
+}
+
+function startBar(test) {
+  addSegment(test);
+}
+
+function stopBar(test) {
+  $(".segment", bar(test)).stop(true).fadeOut();
+}
+
+function addSegment(test) {
+  var seg = newSegment(test);
+  seg.style.left = test == "upload" ? "640px" : "-640px";
+  var b = bar(test); 
+  b.appendChild(seg);
+  $(seg).animate({ left: "0" }, barSpeed, 'linear', removeSegment);
+}
+
+function removeSegment() {
+  var test = $(this).parents(".test").get(0).id;
+  var pos = test == "upload" ? "-640" : "640";
+  $(this).animate({ left: pos }, barSpeed, 'linear', deleteSegment);
+  addSegment(test);
+}
+
+function deleteSegment() {
+  var test = $(this).parents(".test").get(0).id;
+  bar(test).removeChild(this);
+}
+  
+function newSegment() {
+  var seg = document.createElement('div'), dot = null;
+  seg.className = 'segment';
+  /*
+  for (var i=0, len=8; i < len; i++) {
+    dot = document.createElement('div');
+    dot.className = 'dot';
+    dot.style.left = (i * 80) + "px";
+    seg.appendChild(dot);
+  }
+  */
+  return seg;
+}
+
+
+// TESTING APPLET
+
+function testApplet() {
+  return applet = document.applets['NDT'];
+}
+
+function testStatus() {
+  return testApplet().get_status();
+}
+
+function testDiagnosis() {
+  if (simulate) return "Test diagnosis";
+  return testApplet().get_diagnosis();
+}
+
+function testError() {
+  return testApplet().get_errmsg();
+}
+
+function remoteServer() {
+  if (simulate) return '0.0.0.0';
+  return testApplet().get_host();
+}
+
+function clientIP() {
+  if (simulate) return '0.0.0.0';
+  return testApplet().get_clientIP();
+}
+
+function uploadSpeed(raw) {
+  if (simulate) return 0;
+  var speed = testApplet().get_c2sspd();
+  return raw ? speed : parseFloat(speed);
+}
+
+function downloadSpeed() {
+  if (simulate) return 0;
+  return parseFloat(testApplet().get_s2cspd());
+}
+
+function averageRoundTrip() {
+  if (simulate) return 0;
+  return parseFloat(testApplet().get_avgrtt());
+}
+
+function jitter() {
+  if (simulate) return 0;
+  return parseFloat(testApplet().get_jitter());
+}
+
+function testDetails() {
+  if (simulate) return 'Test details';
+
+  var a = testApplet();
+  var d = '';
+
+  d += "Your system: " + a.get_osName() + " version " + a.get_osVer() + "<br>";
+  d += "Java version: " + a.get_javaVer() + " (" + a.get_osArch() + ")<br>";
+
+  d += "<br>";
+
+  d += "TCP receive window: " + a.get_CurRwinRcvd() + " current, " + a.get_MaxRwinRcvd() + " maximum<br>";
+  d += a.get_loss() + " packets lost during test<br>";
+  d += "Round trip time: " + a.get_Ping() + " msec (minimum), " + a.get_MaxRTT() + " msec (maximum), " + a.get_avgrtt() + " msec (average)<br>";
+  d += "Jitter: " + a.get_jitter() + " msec<br>";
+  d += a.get_WaitSec() + " seconds spend waiting following a timeout<br>";
+  d += "TCP time-out counter: " + a.get_CurRTO() + "<br>";
+  d += a.get_SACKsRcvd() + " selective acknowledgement packets received<br>";
+
+  d += "<br>";
+
+  if (a.get_mismatch() == "yes") {
+    d += "A duplex mismatch condition was detected.<br>";
+  }
+  else {
+    d += "No duplex mismatch condition was detected.<br>";
+  }
+
+  if (a.get_Bad_cable() == "yes") {
+    d += "The test detected a cable fault.<br>";
+  }
+  else {
+    d += "The test did not detect a cable fault.<br>";
+  }
+
+  if (a.get_congestion() == "yes") {
+    d += "Network congestion may be limiting the connection.<br>";
+  }
+  else {
+    d += "No network congestion was detected.<br>";
+  }
+
+  if (a.get_natStatus() == "yes") {
+    d += "A network address translation appliance was detected.<br>";
+  }
+  else {
+    d += "No network address translation appliance was detected.<br>";
+  }
+
+  d += "<br>";
+
+  d += a.get_cwndtime() + "% of the time was not spent in a receiver limited or sender limited state.<br>";
+  d += a.get_rcvrLimiting() + "% of the time the connection is limited by the client machine's receive buffer.<br>";
+  d += "Optimal receive buffer: " + a.get_optimalRcvrBuffer() + " bytes<br>";
+  //d += "Bottleneck link: " + a.get_AccessTech() + "<br>";
+  d += a.get_DupAcksOut() + " duplicate ACKs set<br>";
+
+  return d;
+}
+
+// UTILITIES
+function debug(message) {
+  if (allowDebug && window.console) console.debug(message);
+}
+    </script>
+    <script type="text/javascript">
+      var simulate = false;
+      var allowDebug = false;
+      </script>
+    </head>
+    <body class="initializing">
+      <div id="widget">
+        <div id="welcome" class="page">
+          <div class="info">
+            <p class="mlab logo">
+            <a href="http://www.measurementlab.net/">
+               <img src="http://lh4.ggpht.com/DTEoImF2pMyrFSRcykx15VJAQXIPYLjlZcEpqamgmgZTxzNA7DusNLMSUIR2VhudrLVfBVE26QQG8Z3_61b8Tw=s224" 
+                    alt="Measurement Lab" /></a>
+            </p>
+
+            <p>Network Diagnostic Tool (NDT) provides a sophisticated speed and diagnostic test. An NDT test reports more than just the upload and download speeds &mdash; it also attempts to determine what, if any, problems limited these speeds, differentiating between computer configuration and network infrastructure problems. While the diagnostic messages are most useful for expert users, they can also help novice users by allowing them to provide detailed trouble reports to their network&nbsp;administrator.</p>
+
+            <p class="mlab logo"><a href="http://www.measurementlab.net/">Learn more about Measurement Lab</a></p>
+
+          </div>
+          <div class="status">
+            Initializing...
+          </div>
+          <div class="controls">
+            <a href="#test" class="start button">Start Test</a>
+          </div>
+        </div>
+        <div id="test" class="page">
+
+          <div id="loading">
+            <h2>Preparing your tests...</h2>
+            <div class="progress-bar"></div>
+          </div>
+          <div id="upload" class="test">
+            <h2>Now testing <em>your upload speed</em></h2>
+            <div class="progress-bar"></div>
+          </div>
+          <div id="download" class="test">
+            <h2>Now testing <em>your download speed</em></h2>
+            <div class="progress-bar"></div>
+          </div>
+
+          <div class="locations">
+            <div class="local location">
+              <div class="name">Your computer</div>
+              <!--<div class="address"><?php print $local_ip ?></div>i-->
+              <div class="address"><?php print $_SERVER['REMOTE_ADDR']; ?></div>
+            </div>
+            <div class="remote location">
+              <div class="name">Test server</div>
+              <div class="address"></div>
+            </div>
+          </div>
+
+        </div>
+        <div id="results" class="summary page">
+
+          <h2>Your test results</h2>
+
+          <div class="view-selector">
+            <span class="summary button">Summary</span>
+            <span class="details button">Details</span>
+            <span class="advanced button">Advanced</span>
+          </div>
+
+          <div id="result-pages">
+
+            <div class="result-page summary">
+
+              <div class="upload result">
+                <h3>Upload speed</h3>
+                <p>
+                <span class="number" id="upload-speed" class="number">0.00</span>
+                <span class="units">Mb/s</span>
+                </p>
+              </div>
+
+              <div class="download result">
+                <h3>Download speed</h3>
+                <p>
+                <span class="number" id="download-speed" class="number">0.00</span>
+                <span class="units">Mb/s</span>
+              </div>
+
+              <div class="other">
+                <p class="latency"><b>Network latency:</b> <span id="latency">0.0</span> msec round trip time</p>
+                <p class="jitter"><b>Jitter:</b> <span id="jitter">0.0</span> msec</p>
+              </div>
+
+            </div>
+
+            <div class="result-page details" id="test-details"></div>
+
+            <div class="result-page advanced" id="test-advanced"></div>
+
+          </div>
+
+          <div class="branding">
+            <div class="logo">
+              <a href="http://measurementlab.net/about" target="_blank">
+                  <img src="http://lh5.ggpht.com/TC48X_o9GpuaujO_PblWSo31WkoNXZ1FX3aRyuDe3TE3kEMisXfTDPOsAQrrQcIbMlFytQ_48CLL10dyqCR8=s132" />
+              </a>
+            </div>
+            <div class="text">
+              <a href="http://measurementlab.net/about" target="_blank">More information about M-Lab</a>
+            </div>
+          </div>
+
+          <div class="controls">
+            <a href="#test" class="start button">Test again</a>
+          </div>
+
+        </div>
+      </div>
+    </body>
+  </html>
+
